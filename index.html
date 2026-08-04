@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Financeiro Familiar & Investimentos</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js para gráficos de rendimento -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase (login + banco de dados na nuvem) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- ===== TELA DE LOGIN / CADASTRO ===== -->
+    <div id="auth-screen" class="auth-screen">
+        <div class="auth-card">
+            <div class="auth-logo">💰 Finanças<strong>Família</strong></div>
+            <p class="auth-subtitle">Entre com sua conta ou crie um cadastro para sua família</p>
+
+            <div class="auth-tabs">
+                <button class="auth-tab-btn active" data-authtab="login">Entrar</button>
+                <button class="auth-tab-btn" data-authtab="cadastro">Criar Conta</button>
+            </div>
+
+            <div id="auth-error" class="auth-error"></div>
+            <div id="auth-success" class="auth-success"></div>
+            <div id="auth-loading" class="auth-loading">Carregando...</div>
+
+            <!-- LOGIN -->
+            <form id="form-login" class="auth-form active">
+                <input type="email" id="login-email" placeholder="Seu e-mail" required>
+                <input type="password" id="login-senha" placeholder="Sua senha" required>
+                <button type="submit" class="btn-success">Entrar</button>
+            </form>
+
+            <!-- CADASTRO -->
+            <form id="form-cadastro" class="auth-form">
+                <input type="text" id="cad-nome" placeholder="Seu nome" required>
+                <input type="email" id="cad-email" placeholder="Seu e-mail" required>
+                <input type="password" id="cad-senha" placeholder="Crie uma senha (mín. 6 caracteres)" required minlength="6">
+
+                <div class="signup-mode-toggle">
+                    <button type="button" class="signup-mode-btn active" data-mode="nova">✨ Criar família nova</button>
+                    <button type="button" class="signup-mode-btn" data-mode="entrar">🔑 Já tenho um código</button>
+                </div>
+
+                <input type="text" id="cad-familia-nome" placeholder="Nome da sua família (ex: Família Soares)">
+                <input type="text" id="cad-familia-codigo" placeholder="Código de convite (ex: A1B2C3)" class="hidden" style="text-transform:uppercase;">
+
+                <button type="submit" class="btn-success">Criar Conta</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== ONBOARDING (usuário logado mas sem família vinculada ainda) ===== -->
+    <div id="onboarding-screen" class="auth-screen hidden">
+        <div class="auth-card">
+            <div class="auth-logo">👋 Quase lá!</div>
+            <p class="auth-subtitle">Crie uma família nova ou entre com um código de convite</p>
+            <div id="onboarding-error" class="auth-error"></div>
+            <div class="signup-mode-toggle">
+                <button type="button" class="signup-mode-btn active" data-obmode="nova">✨ Criar família nova</button>
+                <button type="button" class="signup-mode-btn" data-obmode="entrar">🔑 Já tenho um código</button>
+            </div>
+            <form id="form-onboarding" class="auth-form active" style="margin-top:14px;">
+                <input type="text" id="ob-nome" placeholder="Seu nome" required>
+                <input type="text" id="ob-familia-nome" placeholder="Nome da sua família (ex: Família Soares)">
+                <input type="text" id="ob-familia-codigo" placeholder="Código de convite" class="hidden" style="text-transform:uppercase;">
+                <button type="submit" class="btn-success">Continuar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== APP PRINCIPAL ===== -->
+    <div id="app-root" class="hidden">
+
+    <!-- NAVBAR -->
+    <header class="navbar">
+        <div class="logo">
+            <span class="logo-icon">💰</span>
+            <span class="logo-text">Finanças<strong>Família</strong></span>
+        </div>
+        <div class="config-container">
+            <span class="family-badge">
+                <strong id="family-name-label">-</strong>
+                <span class="invite-code-pill" id="invite-code-label" title="Clique para copiar o código e convidar sua família">código: ----</span>
+            </span>
+            <button id="btn-pdf" class="btn-primary" onclick="window.print()">🖨️ Exportar PDF</button>
+            <button id="btn-logout" class="btn-logout">Sair</button>
+        </div>
+    </header>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <main class="container">
+
+        <!-- MES SELECIONADO & NAVEGAÇÃO -->
+        <section class="month-selector-card">
+            <button id="prev-month" class="btn-icon">◀</button>
+            <div class="month-display">
+                <span id="current-month-text">AGOSTO 2026</span>
+                <input type="month" id="month-picker" class="month-picker-input">
+            </div>
+            <button id="next-month" class="btn-icon">▶</button>
+        </section>
+
+        <!-- DASHBOARD (CARDS DE RESUMO) -->
+        <section class="dashboard-grid">
+            <div class="card card-saldo">
+                <span class="card-title">Saldo Livre</span>
+                <span class="card-value" id="dash-saldo">R$ 0,00</span>
+                <span class="card-subtext">Entradas − Saídas Pagas</span>
+            </div>
+            <div class="card card-pago">
+                <span class="card-title">Total Pago / Gastos</span>
+                <span class="card-value" id="dash-pago">R$ 0,00</span>
+                <span class="card-subtext">Quitados no mês</span>
+            </div>
+            <div class="card card-vencer">
+                <span class="card-title">Total a Vencer</span>
+                <span class="card-value" id="dash-vencer">R$ 0,00</span>
+                <span class="card-subtext">Pendente no mês</span>
+            </div>
+            <div class="card card-vencidas">
+                <span class="card-title">Patrimônio Investido</span>
+                <span class="card-value" id="dash-investido" style="color: #8b5cf6;">R$ 0,00</span>
+                <span class="card-subtext" id="dash-lucro-total">+0.00% de Lucro Acumulado</span>
+            </div>
+        </section>
+
+        <!-- NAVEGAÇÃO ENTRE ABAS -->
+        <nav class="tabs-nav">
+            <button class="tab-btn active" data-tab="tab-saidas">💳 Saídas (Despesas)</button>
+            <button class="tab-btn" data-tab="tab-entradas">💵 Entradas (Receitas)</button>
+            <button class="tab-btn" data-tab="tab-investimentos">📈 Investimentos</button>
+            <button class="tab-btn" data-tab="tab-arquivo">📦 Arquivo de Pagas</button>
+        </nav>
+
+        <!-- ABA 1: SAÍDAS -->
+        <section id="tab-saidas" class="tab-content active">
+            
+            <div class="form-card">
+                <h3>➕ Nova Saída / Despesa</h3>
+                <form id="form-saida" class="form-grid">
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <input type="text" id="saida-desc" placeholder="Ex: Gasolina, Lighthouse, Lanche" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="saida-cat" required>
+                            <option value="Fixas">Despesas Fixas</option>
+                            <option value="Combustível">Combustível</option>
+                            <option value="Alimentação">Alimentação / Lanches</option>
+                            <option value="Educação">Educação / Filhos</option>
+                            <option value="Lazer">Lazer / Viagens</option>
+                            <option value="Investimentos">Aporte Investimento</option>
+                            <option value="Dízimos/Ofertas">Dízimos / Ofertas</option>
+                            <option value="Diversos" selected>Diversos</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Parcela / Total (R$)</label>
+                        <input type="number" step="0.01" id="saida-valor" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Nº de Parcelas</label>
+                        <input type="number" min="1" max="60" id="saida-parcelas" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Primeiro Vencimento</label>
+                        <input type="date" id="saida-vencimento" required>
+                    </div>
+                    <div class="form-group form-btn-container">
+                        <button type="submit" class="btn-success">Adicionar Saída</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="filter-bar">
+                <span>Filtrar Categoria:</span>
+                <div class="filter-buttons" id="cat-filters">
+                    <button class="btn-filter active" data-cat="TODAS">Todas</button>
+                    <button class="btn-filter" data-cat="Fixas">Fixas</button>
+                    <button class="btn-filter" data-cat="Combustível">Combustível</button>
+                    <button class="btn-filter" data-cat="Alimentação">Lanches</button>
+                    <button class="btn-filter" data-cat="Investimentos">Investimentos</button>
+                    <button class="btn-filter" data-cat="Diversos">Diversos</button>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <h3>🔴 Contas Pendentes & Vencidas do Mês</h3>
+                <div class="responsive-table">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Vencimento</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th>Parcela</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-saidas-pendentes"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ABA 2: ENTRADAS -->
+        <section id="tab-entradas" class="tab-content">
+            <div class="form-card">
+                <h3>💵 Nova Entrada / Receita</h3>
+                <form id="form-entrada" class="form-grid">
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <input type="text" id="entrada-desc" placeholder="Ex: Salário, Serviço Extra" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Recebido (R$)</label>
+                        <input type="number" step="0.01" id="entrada-valor" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data de Recebimento</label>
+                        <input type="date" id="entrada-data" required>
+                    </div>
+                    <div class="form-group form-btn-container">
+                        <button type="submit" class="btn-success">Cadastrar Entrada</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="table-card">
+                <h3> Entradas do Mês & Gestão de Dízimos / Primícias</h3>
+                <div class="responsive-table">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Valor Entrada</th>
+                                <th>Dízimo (10%)</th>
+                                <th>Status Dízimo</th>
+                                <th>Primícias (1/30)</th>
+                                <th>Status Primícias</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-entradas"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 3: INVESTIMENTOS (NOVA!) -->
+        <section id="tab-investimentos" class="tab-content">
+            
+            <div class="reminder-banner">
+                ⏰ <strong>Lembrete Diário:</strong> Atualize os valores dos seus ativos diariamente às <strong>19:00</strong>. O lucro/prejuízo varia na carteira e só se tornará uma <em>Entrada Real</em> no momento em que você clicar no botão <strong>"Sacar para Entrada"</strong>.
+            </div>
+
+            <div class="form-card">
+                <h3>📊 Novo Ativo de Investimento</h3>
+                <form id="form-investimento" class="form-grid">
+                    <div class="form-group">
+                        <label>Nome do Ativo / Carteira</label>
+                        <input type="text" id="inv-nome" placeholder="Ex: CDB 100% CDI, FII MXRF11, EUR/USD Forex, PETR4" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Ativo</label>
+                        <select id="inv-tipo" required>
+                            <option value="CDB/CDI">CDB / CDI</option>
+                            <option value="FIIs">FIIs (Fundos Imobiliários)</option>
+                            <option value="Ações">Ações</option>
+                            <option value="Forex/Cripto">Forex / Cripto</option>
+                            <option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Capital Aplicado (Aporte R$)</label>
+                        <input type="number" step="0.01" id="inv-aporte" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Valor Atual Hoje (R$)</label>
+                        <input type="number" step="0.01" id="inv-atual" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group form-btn-container">
+                        <button type="submit" class="btn-success">Cadastrar & Gerar Saída de Aporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- GRÁFICO DE EVOLUÇÃO EM PORCENTAGEM DE LUCRO -->
+            <div class="chart-card">
+                <h3>📈 Evolução Mensal do Lucro da Carteira (%)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart-investimentos"></canvas>
+                </div>
+            </div>
+
+            <!-- TABELA DE ATIVOS -->
+            <div class="table-card">
+                <h3>💼 Ativos da Carteira & Atualização Diária (19h)</h3>
+                <div class="responsive-table">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ativo</th>
+                                <th>Tipo</th>
+                                <th>Capital Aportado</th>
+                                <th>Valor Atual (Hoje)</th>
+                                <th>Lucro / Prejuízo (R$)</th>
+                                <th>Rentabilidade (%)</th>
+                                <th>Ações & Resgate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-investimentos"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ABA 4: ARQUIVO DE PAGAS -->
+        <section id="tab-arquivo" class="tab-content">
+            <div class="table-card">
+                <h3>🔵 Arquivo de Contas e Dízimos Quitados no Mês</h3>
+                <div class="responsive-table">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Data Pagto</th>
+                                <th>Descrição</th>
+                                <th>Categoria</th>
+                                <th>Parcela</th>
+                                <th>Valor Pago</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-saidas-pagas"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL DE ATUALIZAÇÃO DIÁRIA (19H) -->
+    <div id="modal-att-inv" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-inv">&times;</span>
+            <h2>🔄 Atualização Diária das 19h</h2>
+            <p>Atualize o valor atual acumulado do ativo:</p>
+            <input type="hidden" id="att-inv-id">
+            <div class="form-group margin-top">
+                <label id="att-inv-label">Novo Valor Atual (R$)</label>
+                <input type="number" step="0.01" id="att-inv-valor" placeholder="0,00" required>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-salvar-att-inv" class="btn-success">Salvar Valor Atualizado</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE SACAR / RESGATAR -->
+    <div id="modal-sacar-inv" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-sacar">&times;</span>
+            <h2>💸 Resgatar Investimento para Entradas</h2>
+            <p>Informe quanto deseja resgatar. Este valor entrará automaticamente na sua tabela de <strong>Entradas (Receitas)</strong> com dízimo e primícias calculados!</p>
+            <input type="hidden" id="sacar-inv-id">
+            <div class="form-group margin-top">
+                <label>Valor do Resgate Total ou Parcial (R$)</label>
+                <input type="number" step="0.01" id="sacar-inv-valor" placeholder="0,00" required>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-confirmar-sacar" class="btn-success">Confirmar Resgate & Enviar para Entradas</button>
+            </div>
+        </div>
+    </div>
+
+    </div> <!-- fim #app-root -->
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
