@@ -27,7 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
     setupEvents();
     schedule19hNotification();
-    checkSession();
+    if (!checkEmailConfirmation()) {
+        checkSession();
+    }
 
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
@@ -35,6 +37,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Detecta o retorno do link de confirmação de e-mail e mostra uma mensagem clara.
+// Retorna true se estava numa confirmação (para não seguir o fluxo normal de checkSession).
+function checkEmailConfirmation() {
+    const hash = window.location.hash;
+    const params = new URLSearchParams(window.location.search);
+    const isConfirmacao = hash.includes('type=signup') || hash.includes('type=email_change') || params.get('type') === 'signup';
+    if (isConfirmacao) {
+        // Limpa a URL pra não ficar feio/confuso e força o usuário a logar de novo manualmente
+        history.replaceState(null, '', window.location.pathname);
+        supabaseClient.auth.signOut().finally(() => {
+            showAuthScreen();
+            document.querySelector('[data-authtab="login"]').click();
+            setAuthMessage('success', '✅ Confirmação bem-sucedida! Seu e-mail foi verificado. Agora faça login para entrar no sistema.');
+        });
+        return true;
+    }
+    return false;
+}
 
 async function checkSession() {
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -115,33 +136,34 @@ function setupAuthForms() {
 
         setLoading(true);
         const nome = document.getElementById('cad-nome').value.trim();
-        const familiaNome = document.getElementById('cad-familia-nome').value.trim();
         const email = document.getElementById('cad-email').value.trim();
         const senha = document.getElementById('cad-senha').value;
 
-        const { data, error } = await supabaseClient.auth.signUp({ email, password: senha });
+        const { data, error } = await supabaseClient.auth.signUp({
+            email, password: senha,
+            options: { emailRedirectTo: window.location.href }
+        });
         setLoading(false);
 
         if (error) { setAuthMessage('error', traduzErro(error.message)); return; }
 
         if (!data.session) {
             // Confirmação de e-mail está ativada no projeto
-            setAuthMessage('success', 'Conta criada! Verifique seu e-mail para confirmar o cadastro e depois faça login para concluir o cadastro da família.');
+            setAuthMessage('success', 'Conta criada! Verifique seu e-mail e clique no link de confirmação. Depois volte aqui e faça login.');
             document.querySelector('[data-authtab="login"]').click();
             return;
         }
 
-        // Sessão já ativa: concluir cadastro da família agora
+        // Sessão já ativa (confirmação de e-mail desativada): concluir cadastro agora
         currentUser = data.user;
-        await concluirCadastroFamilia(nome, familiaNome);
+        await concluirCadastroFamilia(nome);
     });
 
     document.getElementById('form-onboarding').addEventListener('submit', async (e) => {
         e.preventDefault();
         document.getElementById('onboarding-error').style.display = 'none';
         const nome = document.getElementById('ob-nome').value.trim();
-        const familiaNome = document.getElementById('ob-familia-nome').value.trim();
-        await concluirCadastroFamilia(nome, familiaNome, true);
+        await concluirCadastroFamilia(nome, true);
     });
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
@@ -159,8 +181,8 @@ function traduzErro(msg) {
     return msg;
 }
 
-async function concluirCadastroFamilia(nome, familiaNome, isOnboarding = false) {
-    const rpcResult = await supabaseClient.rpc('create_family_and_join', { p_family_name: familiaNome, p_user_name: nome });
+async function concluirCadastroFamilia(nome, isOnboarding = false) {
+    const rpcResult = await supabaseClient.rpc('create_family_and_join', { p_user_name: nome });
     if (rpcResult.error) {
         if (isOnboarding) {
             const el = document.getElementById('onboarding-error');

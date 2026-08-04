@@ -38,24 +38,21 @@
             <!-- CADASTRO -->
             <form id="form-cadastro" class="auth-form">
                 <input type="text" id="cad-nome" placeholder="Seu nome" required>
-                <input type="text" id="cad-familia-nome" placeholder="Nome da sua família (ex: Família Soares)" required>
-                <input type="email" id="cad-email" placeholder="E-mail da conta da família" required>
+                <input type="email" id="cad-email" placeholder="Seu e-mail" required>
                 <input type="password" id="cad-senha" placeholder="Crie uma senha (mín. 6 caracteres)" required minlength="6">
-                <p class="card-subtext">💡 Depois de criar, compartilhe esse e-mail e senha com o resto da família — todos entram com o mesmo login.</p>
                 <button type="submit" class="btn-success">Criar Conta</button>
             </form>
         </div>
     </div>
 
-    <!-- ===== ONBOARDING (usuário logado mas sem família vinculada ainda) ===== -->
+    <!-- ===== ONBOARDING (usuário logado mas sem perfil ainda) ===== -->
     <div id="onboarding-screen" class="auth-screen hidden">
         <div class="auth-card">
             <div class="auth-logo">👋 Quase lá!</div>
-            <p class="auth-subtitle">Falta só dar um nome pra sua família</p>
+            <p class="auth-subtitle">Só falta confirmar seu nome</p>
             <div id="onboarding-error" class="auth-error"></div>
             <form id="form-onboarding" class="auth-form active">
                 <input type="text" id="ob-nome" placeholder="Seu nome" required>
-                <input type="text" id="ob-familia-nome" placeholder="Nome da sua família (ex: Família Soares)" required>
                 <button type="submit" class="btn-success">Continuar</button>
             </form>
         </div>
