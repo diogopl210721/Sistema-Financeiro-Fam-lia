@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Financeiro Familiar & Investimentos</title>
+    <title>Planilha Financeira</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js para gráficos de rendimento -->
@@ -16,7 +16,7 @@
     <!-- ===== TELA DE LOGIN / CADASTRO ===== -->
     <div id="auth-screen" class="auth-screen">
         <div class="auth-card">
-            <div class="auth-logo">💰 Finanças<strong>Família</strong></div>
+            <div class="auth-logo">💰 Planilha <strong>Financeira</strong></div>
             <p class="auth-subtitle">Entre com sua conta ou crie um cadastro para sua família</p>
 
             <div class="auth-tabs">
@@ -68,7 +68,7 @@
     <header class="navbar">
         <div class="logo">
             <span class="logo-icon">💰</span>
-            <span class="logo-text">Finanças<strong>Família</strong></span>
+            <span class="logo-text">Planilha <strong>Financeira</strong></span>
         </div>
         <div class="config-container">
             <span class="family-badge">
@@ -92,40 +92,43 @@
             <button id="next-month" class="btn-icon">▶</button>
         </section>
 
-        <!-- DASHBOARD (CARDS DE RESUMO) -->
-        <section class="dashboard-grid">
-            <div class="card card-saldo">
-                <span class="card-title">Saldo Livre</span>
-                <span class="card-value" id="dash-saldo">R$ 0,00</span>
-                <span class="card-subtext">Entradas − Saídas Pagas</span>
-            </div>
-            <div class="card card-pago">
-                <span class="card-title">Total Pago / Gastos</span>
-                <span class="card-value" id="dash-pago">R$ 0,00</span>
-                <span class="card-subtext">Quitados no mês</span>
-            </div>
-            <div class="card card-vencer">
-                <span class="card-title">Total a Vencer</span>
-                <span class="card-value" id="dash-vencer">R$ 0,00</span>
-                <span class="card-subtext">Pendente no mês</span>
-            </div>
-            <div class="card card-vencidas">
-                <span class="card-title">Patrimônio Investido</span>
-                <span class="card-value" id="dash-investido" style="color: #8b5cf6;">R$ 0,00</span>
-                <span class="card-subtext" id="dash-lucro-total">+0.00% de Lucro Acumulado</span>
-            </div>
-        </section>
-
-        <!-- NAVEGAÇÃO ENTRE ABAS -->
+        <!-- MENU DE NAVEGAÇÃO -->
         <nav class="tabs-nav">
-            <button class="tab-btn active" data-tab="tab-saidas">💳 Saídas (Despesas)</button>
+            <button class="tab-btn active" data-tab="tab-dashboard">🏠 Dashboard</button>
+            <button class="tab-btn" data-tab="tab-saidas">💳 Saídas (Despesas)</button>
             <button class="tab-btn" data-tab="tab-entradas">💵 Entradas (Receitas)</button>
             <button class="tab-btn" data-tab="tab-investimentos">📈 Investimentos</button>
             <button class="tab-btn" data-tab="tab-arquivo">📦 Arquivo de Pagas</button>
         </nav>
 
+        <!-- TELA: DASHBOARD (CARDS DE RESUMO) -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="card card-saldo">
+                    <span class="card-title">Saldo Livre</span>
+                    <span class="card-value" id="dash-saldo">R$ 0,00</span>
+                    <span class="card-subtext">Entradas − Saídas Pagas</span>
+                </div>
+                <div class="card card-pago">
+                    <span class="card-title">Total Pago / Gastos</span>
+                    <span class="card-value" id="dash-pago">R$ 0,00</span>
+                    <span class="card-subtext">Quitados no mês</span>
+                </div>
+                <div class="card card-vencer">
+                    <span class="card-title">Total a Vencer</span>
+                    <span class="card-value" id="dash-vencer">R$ 0,00</span>
+                    <span class="card-subtext">Pendente no mês</span>
+                </div>
+                <div class="card card-vencidas">
+                    <span class="card-title">Patrimônio Investido</span>
+                    <span class="card-value" id="dash-investido" style="color: #8b5cf6;">R$ 0,00</span>
+                    <span class="card-subtext" id="dash-lucro-total">+0.00% de Lucro Acumulado</span>
+                </div>
+            </div>
+        </section>
+
         <!-- ABA 1: SAÍDAS -->
-        <section id="tab-saidas" class="tab-content active">
+        <section id="tab-saidas" class="tab-content">
             
             <div class="form-card">
                 <h3>➕ Nova Saída / Despesa</h3>
@@ -349,6 +352,8 @@
         </section>
 
     </main>
+
+    <footer class="app-footer">© 2026 Diogo Soares. Todos os direitos reservados.</footer>
 
     <!-- MODAL DE ATUALIZAÇÃO DIÁRIA (19H) -->
     <div id="modal-att-inv" class="modal">

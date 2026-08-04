@@ -59,9 +59,24 @@ body { background-color: var(--bg-main); color: var(--text-primary); padding-bot
 .card-pago .card-value { color: var(--info); }
 .card-vencer .card-value { color: var(--warning); }
 
-.tabs-nav { display: flex; gap: 8px; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; flex-wrap: wrap; }
-.tab-btn { padding: 12px 20px; background: transparent; border: none; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
-.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tabs-nav {
+    display: flex; gap: 4px; background: var(--card-bg); border: 1px solid var(--border-color);
+    border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px;
+    padding: 6px; overflow-x: auto; position: sticky; top: 8px; z-index: 50;
+    -webkit-overflow-scrolling: touch;
+}
+.tabs-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+    padding: 10px 16px; background: transparent; border: none; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); cursor: pointer;
+    white-space: nowrap; flex-shrink: 0; transition: all 0.2s;
+}
+.tab-btn.active { color: white; background: var(--primary); }
+
+.app-footer {
+    text-align: center; color: var(--text-secondary); font-size: 0.78rem;
+    padding: 24px 16px 32px; max-width: 1100px; margin: 0 auto;
+}
 
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -147,7 +162,7 @@ button { cursor: pointer; border-radius: 6px; font-weight: 600; border: none; tr
 .btn-logout { background: #fef2f2; color: var(--danger); padding: 8px 14px; font-size: 0.85rem; }
 
 @media print {
-    .navbar, .month-selector-card button, .tabs-nav, .form-card, .filter-bar, .btn-pay, .btn-delete, .config-container, .reminder-banner { display: none !important; }
+    .navbar, .month-selector-card button, .tabs-nav, .form-card, .filter-bar, .btn-pay, .btn-delete, .config-container, .reminder-banner, .app-footer { display: none !important; }
     body { background: white; font-size: 9pt; }
     .container { max-width: 100%; margin: 0; padding: 0; }
     .tab-content { display: block !important; margin-bottom: 20px; }
