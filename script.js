@@ -17,14 +17,12 @@ let financeData = {
 let currentCategoryFilter = 'TODAS';
 let chartInstance = null;
 let realtimeChannel = null;
-let cadastroFamilyMode = 'nova';
-let onboardingFamilyMode = 'nova';
 
 // ================== BOOT ==================
 document.addEventListener('DOMContentLoaded', () => {
     setupAuthTabs();
     setupAuthForms();
-    setupFamilyModeToggles();
+    setupCurrencyToggles();
     initMonthPicker();
     setupTabs();
     setupEvents();
@@ -88,24 +86,13 @@ function setupAuthTabs() {
     });
 }
 
-function setupFamilyModeToggles() {
-    document.querySelectorAll('#form-cadastro .signup-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#form-cadastro .signup-mode-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            cadastroFamilyMode = btn.dataset.mode;
-            document.getElementById('cad-familia-nome').classList.toggle('hidden', cadastroFamilyMode !== 'nova');
-            document.getElementById('cad-familia-codigo').classList.toggle('hidden', cadastroFamilyMode !== 'entrar');
-        });
-    });
-    document.querySelectorAll('#onboarding-screen .signup-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('#onboarding-screen .signup-mode-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            onboardingFamilyMode = btn.dataset.obmode;
-            document.getElementById('ob-familia-nome').classList.toggle('hidden', onboardingFamilyMode !== 'nova');
-            document.getElementById('ob-familia-codigo').classList.toggle('hidden', onboardingFamilyMode !== 'entrar');
-        });
+function setupCurrencyToggles() {
+    // Mostra/esconde o campo de cotação do dólar no cadastro de investimento
+    document.getElementById('inv-moeda').addEventListener('change', (e) => {
+        const isUSD = e.target.value === 'USD';
+        document.getElementById('grupo-inv-cotacao-compra').classList.toggle('hidden', !isUSD);
+        document.getElementById('inv-cotacao-compra').required = isUSD;
+        document.getElementById('label-inv-atual').innerText = isUSD ? 'Valor Atual Hoje (em US$)' : 'Valor Atual Hoje (R$)';
     });
 }
 
@@ -126,15 +113,9 @@ function setupAuthForms() {
         e.preventDefault();
         setAuthMessage(null, '');
 
-        if (cadastroFamilyMode === 'nova' && !document.getElementById('cad-familia-nome').value.trim()) {
-            setAuthMessage('error', 'Informe o nome da sua família.'); return;
-        }
-        if (cadastroFamilyMode === 'entrar' && !document.getElementById('cad-familia-codigo').value.trim()) {
-            setAuthMessage('error', 'Informe o código de convite recebido.'); return;
-        }
-
         setLoading(true);
         const nome = document.getElementById('cad-nome').value.trim();
+        const familiaNome = document.getElementById('cad-familia-nome').value.trim();
         const email = document.getElementById('cad-email').value.trim();
         const senha = document.getElementById('cad-senha').value;
 
@@ -150,20 +131,17 @@ function setupAuthForms() {
             return;
         }
 
-        // Sessão já ativa: concluir vínculo com a família agora
+        // Sessão já ativa: concluir cadastro da família agora
         currentUser = data.user;
-        await concluirVinculoFamilia(cadastroFamilyMode, nome,
-            document.getElementById('cad-familia-nome').value.trim(),
-            document.getElementById('cad-familia-codigo').value.trim());
+        await concluirCadastroFamilia(nome, familiaNome);
     });
 
     document.getElementById('form-onboarding').addEventListener('submit', async (e) => {
         e.preventDefault();
         document.getElementById('onboarding-error').style.display = 'none';
         const nome = document.getElementById('ob-nome').value.trim();
-        await concluirVinculoFamilia(onboardingFamilyMode, nome,
-            document.getElementById('ob-familia-nome').value.trim(),
-            document.getElementById('ob-familia-codigo').value.trim(), true);
+        const familiaNome = document.getElementById('ob-familia-nome').value.trim();
+        await concluirCadastroFamilia(nome, familiaNome, true);
     });
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
@@ -172,13 +150,6 @@ function setupAuthForms() {
         location.reload();
     });
 
-    document.getElementById('invite-code-label').addEventListener('click', () => {
-        if (currentFamily) {
-            navigator.clipboard.writeText(currentFamily.invite_code).then(() => {
-                alert(`Código copiado: ${currentFamily.invite_code}\nCompartilhe com os familiares para eles entrarem na mesma conta.`);
-            });
-        }
-    });
 }
 
 function traduzErro(msg) {
@@ -188,20 +159,14 @@ function traduzErro(msg) {
     return msg;
 }
 
-async function concluirVinculoFamilia(mode, nome, familiaNome, familiaCodigo, isOnboarding = false) {
-    let rpcResult;
-    if (mode === 'nova') {
-        rpcResult = await supabaseClient.rpc('create_family_and_join', { p_family_name: familiaNome, p_user_name: nome });
-    } else {
-        rpcResult = await supabaseClient.rpc('join_family_by_code', { p_code: familiaCodigo, p_user_name: nome });
-    }
+async function concluirCadastroFamilia(nome, familiaNome, isOnboarding = false) {
+    const rpcResult = await supabaseClient.rpc('create_family_and_join', { p_family_name: familiaNome, p_user_name: nome });
     if (rpcResult.error) {
-        const msg = rpcResult.error.message.includes('inválido') ? 'Código de convite inválido.' : rpcResult.error.message;
         if (isOnboarding) {
             const el = document.getElementById('onboarding-error');
-            el.innerText = msg; el.style.display = 'block';
+            el.innerText = rpcResult.error.message; el.style.display = 'block';
         } else {
-            setAuthMessage('error', msg);
+            setAuthMessage('error', rpcResult.error.message);
         }
         return;
     }
@@ -229,7 +194,6 @@ async function onAuthenticated(user) {
     currentFamily = family;
 
     document.getElementById('family-name-label').innerText = family ? family.name : '-';
-    document.getElementById('invite-code-label').innerText = `código: ${family ? family.invite_code : '----'}`;
 
     showApp();
     updateMonthDisplay();
@@ -384,19 +348,31 @@ function setupEvents() {
         e.preventDefault();
         const nome = document.getElementById('inv-nome').value;
         const tipo = document.getElementById('inv-tipo').value;
-        const aporte = parseFloat(document.getElementById('inv-aporte').value);
-        const atual = parseFloat(document.getElementById('inv-atual').value);
+        const moeda = document.getElementById('inv-moeda').value; // 'BRL' ou 'USD'
+        const aporte = parseFloat(document.getElementById('inv-aporte').value); // sempre em R$ (dinheiro real gasto)
+        const atual = parseFloat(document.getElementById('inv-atual').value); // na moeda do ativo
         const hojeStr = new Date().toISOString().split('T')[0];
+
+        let cotacaoCompra = 1;
+        let aporteReferencia = aporte; // aporte convertido pra moeda do ativo, base pro cálculo de lucro %
+        if (moeda === 'USD') {
+            cotacaoCompra = parseFloat(document.getElementById('inv-cotacao-compra').value);
+            if (!cotacaoCompra || cotacaoCompra <= 0) { alert('Informe a cotação do dólar na compra.'); return; }
+            aporteReferencia = aporte / cotacaoCompra;
+        }
 
         const { data: novoInv, error } = await supabaseClient.from('investimentos').insert({
             family_id: currentProfile.family_id,
             created_by: currentProfile.id,
-            nome, tipo, aporte, valor_atual: atual
+            nome, tipo, moeda, aporte,
+            aporte_referencia: aporteReferencia,
+            valor_atual: atual,
+            cotacao_atual: cotacaoCompra
         }).select().single();
         if (error) { alert('Erro ao salvar: ' + error.message); return; }
 
         await supabaseClient.from('investimentos_historico').insert({
-            investimento_id: novoInv.id, family_id: currentProfile.family_id, valor: atual
+            investimento_id: novoInv.id, family_id: currentProfile.family_id, valor: atual, cotacao: cotacaoCompra
         });
 
         await supabaseClient.from('saidas').insert({
@@ -419,10 +395,20 @@ function setupEvents() {
     document.getElementById('btn-salvar-att-inv').onclick = async () => {
         const id = document.getElementById('att-inv-id').value;
         const novoValor = parseFloat(document.getElementById('att-inv-valor').value);
+        const inv = financeData.investimentos.find(i => i.id === id);
+        if (!inv) return;
 
-        await supabaseClient.from('investimentos').update({ valor_atual: novoValor }).eq('id', id);
+        let cotacao = 1;
+        const updatePayload = { valor_atual: novoValor };
+        if (inv.moeda === 'USD') {
+            cotacao = parseFloat(document.getElementById('att-inv-cotacao').value);
+            if (!cotacao || cotacao <= 0) { alert('Informe a cotação do dólar hoje.'); return; }
+            updatePayload.cotacao_atual = cotacao;
+        }
+
+        await supabaseClient.from('investimentos').update(updatePayload).eq('id', id);
         await supabaseClient.from('investimentos_historico').insert({
-            investimento_id: id, family_id: currentProfile.family_id, valor: novoValor
+            investimento_id: id, family_id: currentProfile.family_id, valor: novoValor, cotacao
         });
 
         await loadAllData(); renderAll();
@@ -431,30 +417,46 @@ function setupEvents() {
 
     document.getElementById('btn-confirmar-sacar').onclick = async () => {
         const id = document.getElementById('sacar-inv-id').value;
-        const valorSacar = parseFloat(document.getElementById('sacar-inv-valor').value);
+        const valorSacar = parseFloat(document.getElementById('sacar-inv-valor').value); // na moeda do ativo
         const inv = financeData.investimentos.find(i => i.id === id);
         if (!inv) return;
 
-        const novoAtual = Math.max(0, parseFloat(inv.valor_atual) - valorSacar);
-        const novoAporte = Math.max(0, parseFloat(inv.aporte) - valorSacar);
+        const valorAtualAntes = parseFloat(inv.valor_atual);
+        let valorEmReais = valorSacar; // valor que efetivamente entra na aba Entradas (sempre em R$)
+        let cotacao = 1;
 
-        await supabaseClient.from('investimentos').update({ valor_atual: novoAtual, aporte: novoAporte }).eq('id', id);
+        if (inv.moeda === 'USD') {
+            cotacao = parseFloat(document.getElementById('sacar-inv-cotacao').value);
+            if (!cotacao || cotacao <= 0) { alert('Informe a cotação do dólar hoje pra converter o resgate pra Real.'); return; }
+            valorEmReais = +(valorSacar * cotacao).toFixed(2);
+        }
+
+        const proporcao = valorAtualAntes > 0 ? Math.min(1, valorSacar / valorAtualAntes) : 1;
+        const novoAtual = Math.max(0, valorAtualAntes - valorSacar);
+        const novoAporte = Math.max(0, parseFloat(inv.aporte) * (1 - proporcao));
+        const novoAporteReferencia = Math.max(0, parseFloat(inv.aporte_referencia) * (1 - proporcao));
+
+        await supabaseClient.from('investimentos').update({
+            valor_atual: novoAtual, aporte: novoAporte, aporte_referencia: novoAporteReferencia,
+            ...(inv.moeda === 'USD' ? { cotacao_atual: cotacao } : {})
+        }).eq('id', id);
+
         await supabaseClient.from('investimentos_historico').insert({
-            investimento_id: id, family_id: currentProfile.family_id, valor: novoAtual
+            investimento_id: id, family_id: currentProfile.family_id, valor: novoAtual, cotacao
         });
         await supabaseClient.from('entradas').insert({
             family_id: currentProfile.family_id,
             created_by: currentProfile.id,
             descricao: `Resgate Investimento: ${inv.nome}`,
-            valor: valorSacar,
+            valor: valorEmReais,
             data: new Date().toISOString().split('T')[0],
-            dizimo_valor: +(valorSacar * 0.10).toFixed(2),
-            primicias_valor: +(valorSacar / 30).toFixed(2)
+            dizimo_valor: +(valorEmReais * 0.10).toFixed(2),
+            primicias_valor: +(valorEmReais / 30).toFixed(2)
         });
 
         await loadAllData(); renderAll();
         document.getElementById('modal-sacar-inv').style.display = 'none';
-        alert('Valor sacado com sucesso e lançado na sua aba de Entradas!');
+        alert('Valor sacado com sucesso e lançado na sua aba de Entradas (em Real)!');
     };
 
     document.querySelectorAll('.btn-filter').forEach(btn => {
@@ -500,15 +502,19 @@ function renderDashboard() {
     });
     const totalVencer = pendentesMes.reduce((acc, cur) => acc + Number(cur.valor), 0);
 
+    // Aporte é sempre em R$; valor atual é convertido pra R$ usando a última cotação informada (ativos em US$)
     const totalAporte = financeData.investimentos.reduce((a, b) => a + Number(b.aporte), 0);
-    const totalAtual = financeData.investimentos.reduce((a, b) => a + Number(b.valor_atual), 0);
-    const lucroGeralPct = totalAporte > 0 ? (((totalAtual - totalAporte) / totalAporte) * 100) : 0;
+    const totalAtualBRL = financeData.investimentos.reduce((a, b) => {
+        const valor = Number(b.valor_atual);
+        return a + (b.moeda === 'USD' ? valor * Number(b.cotacao_atual || 1) : valor);
+    }, 0);
+    const lucroGeralPct = totalAporte > 0 ? (((totalAtualBRL - totalAporte) / totalAporte) * 100) : 0;
 
     document.getElementById('dash-saldo').innerText = formatR$(totalEntradas - totalPagas);
     document.getElementById('dash-pago').innerText = formatR$(totalPagas);
     document.getElementById('dash-vencer').innerText = formatR$(totalVencer);
-    document.getElementById('dash-investido').innerText = formatR$(totalAtual);
-    document.getElementById('dash-lucro-total').innerText = `${lucroGeralPct >= 0 ? '+' : ''}${lucroGeralPct.toFixed(2)}% de Lucro Acumulado`;
+    document.getElementById('dash-investido').innerText = formatR$(totalAtualBRL);
+    document.getElementById('dash-lucro-total').innerText = `${lucroGeralPct >= 0 ? '+' : ''}${lucroGeralPct.toFixed(2)}% de Lucro Acumulado (em R$)`;
 }
 
 function renderSaidas() {
@@ -613,17 +619,20 @@ function renderInvestimentos() {
     }
 
     financeData.investimentos.forEach(inv => {
-        const aporte = Number(inv.aporte), atual = Number(inv.valor_atual);
-        const lucroR$ = atual - aporte;
-        const lucroPct = aporte > 0 ? ((lucroR$ / aporte) * 100) : 0;
+        const aporteBRL = Number(inv.aporte); // sempre em R$ (dinheiro real gasto)
+        const aporteRef = Number(inv.aporte_referencia); // na moeda do ativo
+        const atual = Number(inv.valor_atual); // na moeda do ativo
+        const lucroNativo = atual - aporteRef;
+        const lucroPct = aporteRef > 0 ? ((lucroNativo / aporteRef) * 100) : 0;
+        const moedaBadge = inv.moeda === 'USD' ? ' <span style="font-size:0.7rem;color:#8b5cf6;">(US$)</span>' : '';
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td><strong>${inv.nome}</strong></td>
+            <td><strong>${inv.nome}</strong>${moedaBadge}</td>
             <td>${inv.tipo}</td>
-            <td>${formatR$(aporte)}</td>
-            <td><strong>${formatR$(atual)}</strong></td>
-            <td class="${lucroR$ >= 0 ? 'val-green' : 'val-red'}">${lucroR$ >= 0 ? '+' : ''}${formatR$(lucroR$)}</td>
+            <td>${formatR$(aporteBRL)}</td>
+            <td><strong>${formatMoeda(atual, inv.moeda)}</strong></td>
+            <td class="${lucroNativo >= 0 ? 'val-green' : 'val-red'}">${lucroNativo >= 0 ? '+' : ''}${formatMoeda(lucroNativo, inv.moeda)}</td>
             <td class="${lucroPct >= 0 ? 'val-green' : 'val-red'}"><strong>${lucroPct >= 0 ? '+' : ''}${lucroPct.toFixed(2)}%</strong></td>
             <td>
                 <button class="btn-secondary" onclick="abrirModalAtt('${inv.id}')">🔄 Atualizar (19h)</button>
@@ -641,19 +650,21 @@ function renderChartInvestimentos() {
     if (!ctx) return;
     if (chartInstance) chartInstance.destroy();
 
-    // Monta a evolução real com base no histórico salvo no Supabase
-    const porInvestimento = {};
-    financeData.investimentos.forEach(inv => { porInvestimento[inv.id] = { valor: Number(inv.aporte), aporte: Number(inv.aporte) }; });
+    // Monta a evolução real com base no histórico salvo no Supabase (tudo convertido pra R$)
+    const moedaPorInv = {};
+    financeData.investimentos.forEach(inv => { moedaPorInv[inv.id] = inv.moeda; });
+
+    const valorAtualBRL = {}; // último valor conhecido de cada ativo, já em R$
+    const totalAporte = financeData.investimentos.reduce((a, b) => a + Number(b.aporte), 0);
 
     const historicoOrdenado = [...financeData.historico].sort((a, b) => new Date(a.registrado_em) - new Date(b.registrado_em));
 
     const pontosPorDia = {};
     historicoOrdenado.forEach(h => {
-        if (!(h.investimento_id in porInvestimento)) porInvestimento[h.investimento_id] = { valor: 0, aporte: 0 };
-        porInvestimento[h.investimento_id].valor = Number(h.valor);
+        const moeda = moedaPorInv[h.investimento_id] || 'BRL';
+        valorAtualBRL[h.investimento_id] = moeda === 'USD' ? Number(h.valor) * Number(h.cotacao || 1) : Number(h.valor);
         const diaKey = h.registrado_em.split('T')[0];
-        const totalAtual = Object.values(porInvestimento).reduce((a, b) => a + b.valor, 0);
-        const totalAporte = financeData.investimentos.reduce((a, b) => a + Number(b.aporte), 0);
+        const totalAtual = Object.values(valorAtualBRL).reduce((a, b) => a + b, 0);
         pontosPorDia[diaKey] = totalAporte > 0 ? ((totalAtual - totalAporte) / totalAporte) * 100 : 0;
     });
 
@@ -661,9 +672,11 @@ function renderChartInvestimentos() {
     let valores = Object.values(pontosPorDia);
 
     if (labels.length === 0 && financeData.investimentos.length > 0) {
-        const totalAporte = financeData.investimentos.reduce((a, b) => a + Number(b.aporte), 0);
-        const totalAtual = financeData.investimentos.reduce((a, b) => a + Number(b.valor_atual), 0);
-        const pct = totalAporte > 0 ? ((totalAtual - totalAporte) / totalAporte) * 100 : 0;
+        const totalAtualBRL = financeData.investimentos.reduce((a, b) => {
+            const v = Number(b.valor_atual);
+            return a + (b.moeda === 'USD' ? v * Number(b.cotacao_atual || 1) : v);
+        }, 0);
+        const pct = totalAporte > 0 ? ((totalAtualBRL - totalAporte) / totalAporte) * 100 : 0;
         labels = ['Hoje']; valores = [pct];
     }
 
@@ -695,17 +708,26 @@ function renderChartInvestimentos() {
 function abrirModalAtt(id) {
     const inv = financeData.investimentos.find(i => i.id === id);
     if (inv) {
+        const isUSD = inv.moeda === 'USD';
         document.getElementById('att-inv-id').value = id;
-        document.getElementById('att-inv-label').innerText = `Novo Valor Atual das 19h para: ${inv.nome}`;
+        document.getElementById('att-inv-label').innerText = `Novo Valor Atual das 19h para: ${inv.nome} (${isUSD ? 'em US$' : 'em R$'})`;
         document.getElementById('att-inv-valor').value = inv.valor_atual;
+        document.getElementById('grupo-att-inv-cotacao').classList.toggle('hidden', !isUSD);
+        document.getElementById('att-inv-cotacao').value = isUSD ? inv.cotacao_atual : '';
+        document.getElementById('att-inv-cotacao').required = isUSD;
         document.getElementById('modal-att-inv').style.display = 'flex';
     }
 }
 function abrirModalSacar(id) {
     const inv = financeData.investimentos.find(i => i.id === id);
     if (inv) {
+        const isUSD = inv.moeda === 'USD';
         document.getElementById('sacar-inv-id').value = id;
+        document.getElementById('sacar-inv-label').innerText = isUSD ? 'Valor do Resgate (em US$)' : 'Valor do Resgate Total ou Parcial (R$)';
         document.getElementById('sacar-inv-valor').value = inv.valor_atual;
+        document.getElementById('grupo-sacar-inv-cotacao').classList.toggle('hidden', !isUSD);
+        document.getElementById('sacar-inv-cotacao').value = isUSD ? inv.cotacao_atual : '';
+        document.getElementById('sacar-inv-cotacao').required = isUSD;
         document.getElementById('modal-sacar-inv').style.display = 'flex';
     }
 }
@@ -752,4 +774,8 @@ async function confirmarPrimicias(id) {
 
 // ================== FORMATAÇÃO ==================
 function formatR$(v) { return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function formatMoeda(v, moeda) {
+    if (moeda === 'USD') return 'US$ ' + Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatR$(v);
+}
 function formatData(dStr) { if (!dStr) return '-'; const [y, m, d] = dStr.split('-'); return `${d}/${m}/${y}`; }

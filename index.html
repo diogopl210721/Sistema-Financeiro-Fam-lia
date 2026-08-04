@@ -38,17 +38,10 @@
             <!-- CADASTRO -->
             <form id="form-cadastro" class="auth-form">
                 <input type="text" id="cad-nome" placeholder="Seu nome" required>
-                <input type="email" id="cad-email" placeholder="Seu e-mail" required>
+                <input type="text" id="cad-familia-nome" placeholder="Nome da sua família (ex: Família Soares)" required>
+                <input type="email" id="cad-email" placeholder="E-mail da conta da família" required>
                 <input type="password" id="cad-senha" placeholder="Crie uma senha (mín. 6 caracteres)" required minlength="6">
-
-                <div class="signup-mode-toggle">
-                    <button type="button" class="signup-mode-btn active" data-mode="nova">✨ Criar família nova</button>
-                    <button type="button" class="signup-mode-btn" data-mode="entrar">🔑 Já tenho um código</button>
-                </div>
-
-                <input type="text" id="cad-familia-nome" placeholder="Nome da sua família (ex: Família Soares)">
-                <input type="text" id="cad-familia-codigo" placeholder="Código de convite (ex: A1B2C3)" class="hidden" style="text-transform:uppercase;">
-
+                <p class="card-subtext">💡 Depois de criar, compartilhe esse e-mail e senha com o resto da família — todos entram com o mesmo login.</p>
                 <button type="submit" class="btn-success">Criar Conta</button>
             </form>
         </div>
@@ -58,16 +51,11 @@
     <div id="onboarding-screen" class="auth-screen hidden">
         <div class="auth-card">
             <div class="auth-logo">👋 Quase lá!</div>
-            <p class="auth-subtitle">Crie uma família nova ou entre com um código de convite</p>
+            <p class="auth-subtitle">Falta só dar um nome pra sua família</p>
             <div id="onboarding-error" class="auth-error"></div>
-            <div class="signup-mode-toggle">
-                <button type="button" class="signup-mode-btn active" data-obmode="nova">✨ Criar família nova</button>
-                <button type="button" class="signup-mode-btn" data-obmode="entrar">🔑 Já tenho um código</button>
-            </div>
-            <form id="form-onboarding" class="auth-form active" style="margin-top:14px;">
+            <form id="form-onboarding" class="auth-form active">
                 <input type="text" id="ob-nome" placeholder="Seu nome" required>
-                <input type="text" id="ob-familia-nome" placeholder="Nome da sua família (ex: Família Soares)">
-                <input type="text" id="ob-familia-codigo" placeholder="Código de convite" class="hidden" style="text-transform:uppercase;">
+                <input type="text" id="ob-familia-nome" placeholder="Nome da sua família (ex: Família Soares)" required>
                 <button type="submit" class="btn-success">Continuar</button>
             </form>
         </div>
@@ -85,7 +73,6 @@
         <div class="config-container">
             <span class="family-badge">
                 <strong id="family-name-label">-</strong>
-                <span class="invite-code-pill" id="invite-code-label" title="Clique para copiar o código e convidar sua família">código: ----</span>
             </span>
             <button id="btn-pdf" class="btn-primary" onclick="window.print()">🖨️ Exportar PDF</button>
             <button id="btn-logout" class="btn-logout">Sair</button>
@@ -282,17 +269,29 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Capital Aplicado (Aporte R$)</label>
-                        <input type="number" step="0.01" id="inv-aporte" placeholder="0,00" required>
+                        <label>Moeda do Ativo</label>
+                        <select id="inv-moeda">
+                            <option value="BRL">Real (R$)</option>
+                            <option value="USD">Dólar (US$) — ex: Forex</option>
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label>Valor Atual Hoje (R$)</label>
+                        <label>Capital Aplicado (Saída em R$)</label>
+                        <input type="number" step="0.01" id="inv-aporte" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group hidden" id="grupo-inv-cotacao-compra">
+                        <label>Cotação do Dólar na Compra (R$)</label>
+                        <input type="number" step="0.0001" id="inv-cotacao-compra" placeholder="Ex: 5,35">
+                    </div>
+                    <div class="form-group">
+                        <label id="label-inv-atual">Valor Atual Hoje (R$)</label>
                         <input type="number" step="0.01" id="inv-atual" placeholder="0,00" required>
                     </div>
                     <div class="form-group form-btn-container">
                         <button type="submit" class="btn-success">Cadastrar & Gerar Saída de Aporte</button>
                     </div>
                 </form>
+                <p class="card-subtext" style="margin-top:8px;">💡 A saída em R$ é sempre o dinheiro real gasto. Se o ativo for em dólar, a evolução (lucro %) é calculada em dólar — a variação do câmbio não interfere na rentabilidade do ativo em si.</p>
             </div>
 
             <!-- GRÁFICO DE EVOLUÇÃO EM PORCENTAGEM DE LUCRO -->
@@ -314,7 +313,7 @@
                                 <th>Tipo</th>
                                 <th>Capital Aportado</th>
                                 <th>Valor Atual (Hoje)</th>
-                                <th>Lucro / Prejuízo (R$)</th>
+                                <th>Lucro / Prejuízo</th>
                                 <th>Rentabilidade (%)</th>
                                 <th>Ações & Resgate</th>
                             </tr>
@@ -362,6 +361,10 @@
                 <label id="att-inv-label">Novo Valor Atual (R$)</label>
                 <input type="number" step="0.01" id="att-inv-valor" placeholder="0,00" required>
             </div>
+            <div class="form-group hidden" id="grupo-att-inv-cotacao">
+                <label>Cotação do Dólar Hoje (R$)</label>
+                <input type="number" step="0.0001" id="att-inv-cotacao" placeholder="Ex: 5,40">
+            </div>
             <div class="modal-actions">
                 <button id="btn-salvar-att-inv" class="btn-success">Salvar Valor Atualizado</button>
             </div>
@@ -376,8 +379,12 @@
             <p>Informe quanto deseja resgatar. Este valor entrará automaticamente na sua tabela de <strong>Entradas (Receitas)</strong> com dízimo e primícias calculados!</p>
             <input type="hidden" id="sacar-inv-id">
             <div class="form-group margin-top">
-                <label>Valor do Resgate Total ou Parcial (R$)</label>
+                <label id="sacar-inv-label">Valor do Resgate Total ou Parcial (R$)</label>
                 <input type="number" step="0.01" id="sacar-inv-valor" placeholder="0,00" required>
+            </div>
+            <div class="form-group hidden" id="grupo-sacar-inv-cotacao">
+                <label>Cotação do Dólar Hoje (R$) — pra converter o valor sacado pra Real</label>
+                <input type="number" step="0.0001" id="sacar-inv-cotacao" placeholder="Ex: 5,40">
             </div>
             <div class="modal-actions">
                 <button id="btn-confirmar-sacar" class="btn-success">Confirmar Resgate & Enviar para Entradas</button>
