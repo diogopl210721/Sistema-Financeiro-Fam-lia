@@ -159,13 +159,18 @@
                         <input type="number" min="1" max="60" id="saida-parcelas" value="1" required>
                     </div>
                     <div class="form-group">
-                        <label>Primeiro Vencimento</label>
+                        <label>Data da Compra</label>
+                        <input type="date" id="saida-data-compra" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Primeiro Vencimento (data de pagamento)</label>
                         <input type="date" id="saida-vencimento" required>
                     </div>
                     <div class="form-group form-btn-container">
                         <button type="submit" class="btn-success">Adicionar Saída</button>
                     </div>
                 </form>
+                <input type="hidden" id="saida-edicao-id">
             </div>
 
             <div class="filter-bar">
@@ -192,7 +197,7 @@
                                 <th>Parcela</th>
                                 <th>Valor</th>
                                 <th>Status</th>
-                                <th>Ação</th>
+                                <th>Ações</th>
                             </tr>
                         </thead>
                         <tbody id="lista-saidas-pendentes"></tbody>
@@ -354,6 +359,97 @@
     </main>
 
     <footer class="app-footer">© 2026 Diogo Soares. Todos os direitos reservados.</footer>
+
+    <!-- MODAL DE EDITAR SAÍDA -->
+    <div id="modal-editar-saida" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-editar-saida">&times;</span>
+            <h2>✏️ Editar Saída / Despesa</h2>
+            <input type="hidden" id="edit-saida-id">
+            <div class="form-group margin-top">
+                <label>Descrição</label>
+                <input type="text" id="edit-saida-desc" required>
+            </div>
+            <div class="form-group">
+                <label>Categoria</label>
+                <select id="edit-saida-cat" required>
+                    <option value="Fixas">Despesas Fixas</option>
+                    <option value="Combustível">Combustível</option>
+                    <option value="Alimentação">Alimentação / Lanches</option>
+                    <option value="Educação">Educação / Filhos</option>
+                    <option value="Lazer">Lazer / Viagens</option>
+                    <option value="Investimentos">Aporte Investimento</option>
+                    <option value="Dízimos/Ofertas">Dízimos / Ofertas</option>
+                    <option value="Diversos">Diversos</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Valor (R$)</label>
+                <input type="number" step="0.01" id="edit-saida-valor" required>
+            </div>
+            <div class="form-group">
+                <label>Data da Compra</label>
+                <input type="date" id="edit-saida-data-compra" required>
+            </div>
+            <div class="form-group">
+                <label>Vencimento (data de pagamento)</label>
+                <input type="date" id="edit-saida-vencimento" required>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-salvar-edicao-saida" class="btn-success">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EDITAR ENTRADA -->
+    <div id="modal-editar-entrada" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-editar-entrada">&times;</span>
+            <h2>✏️ Editar Entrada / Receita</h2>
+            <input type="hidden" id="edit-entrada-id">
+            <div class="form-group margin-top">
+                <label>Descrição</label>
+                <input type="text" id="edit-entrada-desc" required>
+            </div>
+            <div class="form-group">
+                <label>Valor Recebido (R$)</label>
+                <input type="number" step="0.01" id="edit-entrada-valor" required>
+            </div>
+            <div class="form-group">
+                <label>Data de Recebimento</label>
+                <input type="date" id="edit-entrada-data" required>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-salvar-edicao-entrada" class="btn-success">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE EDITAR INVESTIMENTO -->
+    <div id="modal-editar-investimento" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-editar-investimento">&times;</span>
+            <h2>✏️ Editar Ativo de Investimento</h2>
+            <input type="hidden" id="edit-inv-id">
+            <div class="form-group margin-top">
+                <label>Nome do Ativo</label>
+                <input type="text" id="edit-inv-nome" required>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Ativo</label>
+                <select id="edit-inv-tipo" required>
+                    <option value="CDB/CDI">CDB / CDI</option>
+                    <option value="FIIs">FIIs (Fundos Imobiliários)</option>
+                    <option value="Ações">Ações</option>
+                    <option value="Forex/Cripto">Forex / Cripto</option>
+                    <option value="Outros">Outros</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-salvar-edicao-investimento" class="btn-success">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL DE ATUALIZAÇÃO DIÁRIA (19H) -->
     <div id="modal-att-inv" class="modal">

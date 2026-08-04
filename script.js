@@ -281,7 +281,9 @@ function updateMonthDisplay() {
 
     const yyyy = currentDate.getFullYear();
     const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const hojeStr = new Date().toISOString().split('T')[0];
     document.getElementById('saida-vencimento').value = `${yyyy}-${mm}-10`;
+    document.getElementById('saida-data-compra').value = hojeStr;
     document.getElementById('entrada-data').value = `${yyyy}-${mm}-05`;
 }
 
@@ -305,6 +307,7 @@ function setupEvents() {
         const cat = document.getElementById('saida-cat').value;
         const valor = parseFloat(document.getElementById('saida-valor').value);
         const parcelas = parseInt(document.getElementById('saida-parcelas').value);
+        const dataCompra = document.getElementById('saida-data-compra').value;
         const vencimento = new Date(document.getElementById('saida-vencimento').value + 'T00:00:00');
 
         const linhas = [];
@@ -319,6 +322,7 @@ function setupEvents() {
                 valor: valor,
                 parcela_atual: i,
                 parcelas_total: parcelas,
+                data_compra: dataCompra,
                 vencimento: dataParcela.toISOString().split('T')[0],
                 status: 'pendente'
             });
@@ -467,6 +471,95 @@ function setupEvents() {
             renderSaidas();
         });
     });
+
+    // ===== MODAIS DE EDIÇÃO =====
+    document.getElementById('close-modal-editar-saida').onclick = () => document.getElementById('modal-editar-saida').style.display = 'none';
+    document.getElementById('close-modal-editar-entrada').onclick = () => document.getElementById('modal-editar-entrada').style.display = 'none';
+    document.getElementById('close-modal-editar-investimento').onclick = () => document.getElementById('modal-editar-investimento').style.display = 'none';
+
+    document.getElementById('btn-salvar-edicao-saida').onclick = async () => {
+        const id = document.getElementById('edit-saida-id').value;
+        const { error } = await supabaseClient.from('saidas').update({
+            descricao: document.getElementById('edit-saida-desc').value,
+            categoria: document.getElementById('edit-saida-cat').value,
+            valor: parseFloat(document.getElementById('edit-saida-valor').value),
+            data_compra: document.getElementById('edit-saida-data-compra').value,
+            vencimento: document.getElementById('edit-saida-vencimento').value
+        }).eq('id', id);
+        if (error) { alert('Erro ao salvar: ' + error.message); return; }
+        await loadAllData(); renderAll();
+        document.getElementById('modal-editar-saida').style.display = 'none';
+    };
+
+    document.getElementById('btn-salvar-edicao-entrada').onclick = async () => {
+        const id = document.getElementById('edit-entrada-id').value;
+        const valor = parseFloat(document.getElementById('edit-entrada-valor').value);
+        const { error } = await supabaseClient.from('entradas').update({
+            descricao: document.getElementById('edit-entrada-desc').value,
+            valor: valor,
+            data: document.getElementById('edit-entrada-data').value,
+            dizimo_valor: +(valor * 0.10).toFixed(2),
+            primicias_valor: +(valor / 30).toFixed(2)
+        }).eq('id', id);
+        if (error) { alert('Erro ao salvar: ' + error.message); return; }
+        await loadAllData(); renderAll();
+        document.getElementById('modal-editar-entrada').style.display = 'none';
+    };
+
+    document.getElementById('btn-salvar-edicao-investimento').onclick = async () => {
+        const id = document.getElementById('edit-inv-id').value;
+        const { error } = await supabaseClient.from('investimentos').update({
+            nome: document.getElementById('edit-inv-nome').value,
+            tipo: document.getElementById('edit-inv-tipo').value
+        }).eq('id', id);
+        if (error) { alert('Erro ao salvar: ' + error.message); return; }
+        await loadAllData(); renderAll();
+        document.getElementById('modal-editar-investimento').style.display = 'none';
+    };
+}
+
+// ===== ABRIR MODAIS DE EDIÇÃO =====
+function abrirEdicaoSaida(id) {
+    const s = financeData.saidas.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('edit-saida-id').value = s.id;
+    document.getElementById('edit-saida-desc').value = s.descricao;
+    document.getElementById('edit-saida-cat').value = s.categoria;
+    document.getElementById('edit-saida-valor').value = s.valor;
+    document.getElementById('edit-saida-data-compra').value = s.data_compra;
+    document.getElementById('edit-saida-vencimento').value = s.vencimento;
+    document.getElementById('modal-editar-saida').style.display = 'flex';
+}
+
+function abrirEdicaoEntrada(id) {
+    const en = financeData.entradas.find(x => x.id === id);
+    if (!en) return;
+    document.getElementById('edit-entrada-id').value = en.id;
+    document.getElementById('edit-entrada-desc').value = en.descricao;
+    document.getElementById('edit-entrada-valor').value = en.valor;
+    document.getElementById('edit-entrada-data').value = en.data;
+    document.getElementById('modal-editar-entrada').style.display = 'flex';
+}
+
+function abrirEdicaoInvestimento(id) {
+    const inv = financeData.investimentos.find(x => x.id === id);
+    if (!inv) return;
+    document.getElementById('edit-inv-id').value = inv.id;
+    document.getElementById('edit-inv-nome').value = inv.nome;
+    document.getElementById('edit-inv-tipo').value = inv.tipo;
+    document.getElementById('modal-editar-investimento').style.display = 'flex';
+}
+
+async function deletarSaida(id) {
+    if (!confirm('Excluir esta saída/despesa? Essa ação não pode ser desfeita.')) return;
+    await supabaseClient.from('saidas').delete().eq('id', id);
+    await loadAllData(); renderAll();
+}
+
+async function deletarInvestimento(id) {
+    if (!confirm('Excluir este ativo de investimento? O histórico dele também será removido.')) return;
+    await supabaseClient.from('investimentos').delete().eq('id', id);
+    await loadAllData(); renderAll();
 }
 
 // ================== RENDERIZAÇÃO ==================
@@ -546,7 +639,11 @@ function renderSaidas() {
             <td>${s.parcela_atual}/${s.parcelas_total}</td>
             <td class="val-red">${formatR$(s.valor)}</td>
             <td><span class="badge-status">${isVencida ? '🔴 VENCIDA' : '🔴 PENDENTE'}</span></td>
-            <td><button class="btn-pay" onclick="pagarSaida('${s.id}')">PAGAR</button></td>
+            <td>
+                <button class="btn-pay" onclick="pagarSaida('${s.id}')">PAGAR</button>
+                <button class="btn-secondary" onclick="abrirEdicaoSaida('${s.id}')">✏️</button>
+                <button class="btn-delete" onclick="deletarSaida('${s.id}')">🗑️</button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -577,7 +674,10 @@ function renderEntradas() {
             <td>${e.dizimo_status === 'devolvido' ? '<span class="badge-status badge-devolvido">✓ Devolvido</span>' : `<button class="btn-secondary" onclick="confirmarDizimo('${e.id}')">[ ] Confirmar Dízimo</button>`}</td>
             <td>${formatR$(e.primicias_valor)}</td>
             <td>${e.primicias_status === 'devolvido' ? '<span class="badge-status badge-devolvido">✓ Devolvido</span>' : `<button class="btn-secondary" onclick="confirmarPrimicias('${e.id}')">[ ] Confirmar Primícias</button>`}</td>
-            <td><button class="btn-delete" onclick="deletarEntrada('${e.id}')">🗑️</button></td>
+            <td>
+                <button class="btn-secondary" onclick="abrirEdicaoEntrada('${e.id}')">✏️</button>
+                <button class="btn-delete" onclick="deletarEntrada('${e.id}')">🗑️</button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -603,7 +703,11 @@ function renderPagas() {
             <td>${s.parcela_atual}/${s.parcelas_total}</td>
             <td class="val-blue">${formatR$(s.valor)}</td>
             <td><span class="badge-status">🔵 PAGO</span></td>
-            <td><button class="btn-secondary" onclick="desfazerPagto('${s.id}')">Desfazer</button></td>
+            <td>
+                <button class="btn-secondary" onclick="desfazerPagto('${s.id}')">Desfazer</button>
+                <button class="btn-secondary" onclick="abrirEdicaoSaida('${s.id}')">✏️</button>
+                <button class="btn-delete" onclick="deletarSaida('${s.id}')">🗑️</button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
@@ -637,6 +741,8 @@ function renderInvestimentos() {
             <td>
                 <button class="btn-secondary" onclick="abrirModalAtt('${inv.id}')">🔄 Atualizar (19h)</button>
                 <button class="btn-purple" onclick="abrirModalSacar('${inv.id}')">💸 Sacar para Entrada</button>
+                <button class="btn-secondary" onclick="abrirEdicaoInvestimento('${inv.id}')">✏️</button>
+                <button class="btn-delete" onclick="deletarInvestimento('${inv.id}')">🗑️</button>
             </td>
         `;
         tbody.appendChild(tr);
