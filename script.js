@@ -501,12 +501,15 @@ function setupEvents() {
 
     document.getElementById('btn-salvar-edicao-saida').onclick = async () => {
         const id = document.getElementById('edit-saida-id').value;
+        const dataPagamento = document.getElementById('edit-saida-data-pagamento').value || null;
         const { error } = await supabaseClient.from('saidas').update({
             descricao: document.getElementById('edit-saida-desc').value,
             categoria: document.getElementById('edit-saida-cat').value,
             valor: parseFloat(document.getElementById('edit-saida-valor').value),
             data_compra: document.getElementById('edit-saida-data-compra').value,
-            vencimento: document.getElementById('edit-saida-vencimento').value
+            vencimento: document.getElementById('edit-saida-vencimento').value,
+            data_pagamento: dataPagamento,
+            status: dataPagamento ? 'pago' : 'pendente'
         }).eq('id', id);
         if (error) { alert('Erro ao salvar: ' + error.message); return; }
         await loadAllData(); renderAll();
@@ -550,6 +553,7 @@ function abrirEdicaoSaida(id) {
     document.getElementById('edit-saida-valor').value = s.valor;
     document.getElementById('edit-saida-data-compra').value = s.data_compra;
     document.getElementById('edit-saida-vencimento').value = s.vencimento;
+    document.getElementById('edit-saida-data-pagamento').value = s.data_pagamento || '';
     document.getElementById('modal-editar-saida').style.display = 'flex';
 }
 
