@@ -101,10 +101,15 @@
         <!-- TELA: DASHBOARD (CARDS DE RESUMO) -->
         <section id="tab-dashboard" class="tab-content active">
             <div class="dashboard-grid">
+                <div class="card card-saldo-anterior">
+                    <span class="card-title">Saldo do Mês Anterior</span>
+                    <span class="card-value" id="dash-saldo-anterior">R$ 0,00</span>
+                    <span class="card-subtext">Já incluído no Saldo Livre abaixo</span>
+                </div>
                 <div class="card card-saldo">
                     <span class="card-title">Saldo Livre</span>
                     <span class="card-value" id="dash-saldo">R$ 0,00</span>
-                    <span class="card-subtext">Entradas − Saídas Pagas</span>
+                    <span class="card-subtext">Anterior + Entradas − Saídas Pagas</span>
                 </div>
                 <div class="card card-pago">
                     <span class="card-title">Total Pago / Gastos</span>

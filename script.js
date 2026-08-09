@@ -601,6 +601,25 @@ function renderDashboard() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
 
+    // ===== SALDO DO MÊS ANTERIOR (carrega pro mês atual) =====
+    const primeiroDiaMesAtual = new Date(year, month, 1);
+    const mesAnterior = new Date(year, month - 1, 1);
+    const anoAnt = mesAnterior.getFullYear();
+    const mesAnt = mesAnterior.getMonth();
+
+    const entradasMesAnterior = financeData.entradas.filter(e => {
+        const d = new Date(e.data + 'T00:00:00');
+        return d.getFullYear() === anoAnt && d.getMonth() === mesAnt;
+    }).reduce((acc, cur) => acc + Number(cur.valor), 0);
+
+    const pagasMesAnterior = financeData.saidas.filter(s => {
+        if (s.status !== 'pago' || !s.data_pagamento) return false;
+        const d = new Date(s.data_pagamento + 'T00:00:00');
+        return d.getFullYear() === anoAnt && d.getMonth() === mesAnt;
+    }).reduce((acc, cur) => acc + Number(cur.valor), 0);
+
+    const saldoAnterior = entradasMesAnterior - pagasMesAnterior;
+
     const entradasMes = financeData.entradas.filter(e => {
         const d = new Date(e.data + 'T00:00:00');
         return d.getFullYear() === year && d.getMonth() === month;
@@ -608,16 +627,18 @@ function renderDashboard() {
     const totalEntradas = entradasMes.reduce((acc, cur) => acc + Number(cur.valor), 0);
 
     const pagasMes = financeData.saidas.filter(s => {
-        if (s.status !== 'pago') return false;
-        const d = new Date(s.vencimento + 'T00:00:00');
+        if (s.status !== 'pago' || !s.data_pagamento) return false;
+        const d = new Date(s.data_pagamento + 'T00:00:00');
         return d.getFullYear() === year && d.getMonth() === month;
     });
     const totalPagas = pagasMes.reduce((acc, cur) => acc + Number(cur.valor), 0);
 
+    // Pendentes = tudo que vence até o fim do mês atual e ainda não foi pago (inclui atrasadas de meses anteriores)
+    const fimMesAtual = new Date(year, month + 1, 0);
     const pendentesMes = financeData.saidas.filter(s => {
         if (s.status === 'pago') return false;
         const d = new Date(s.vencimento + 'T00:00:00');
-        return d.getFullYear() === year && d.getMonth() === month;
+        return d <= fimMesAtual;
     });
     const totalVencer = pendentesMes.reduce((acc, cur) => acc + Number(cur.valor), 0);
 
@@ -629,7 +650,8 @@ function renderDashboard() {
     }, 0);
     const lucroGeralPct = totalAporte > 0 ? (((totalAtualBRL - totalAporte) / totalAporte) * 100) : 0;
 
-    document.getElementById('dash-saldo').innerText = formatR$(totalEntradas - totalPagas);
+    document.getElementById('dash-saldo-anterior').innerText = formatR$(saldoAnterior);
+    document.getElementById('dash-saldo').innerText = formatR$(saldoAnterior + totalEntradas - totalPagas);
     document.getElementById('dash-pago').innerText = formatR$(totalPagas);
     document.getElementById('dash-vencer').innerText = formatR$(totalVencer);
     document.getElementById('dash-investido').innerText = formatR$(totalAtualBRL);
@@ -642,11 +664,13 @@ function renderSaidas() {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const fimMesAtual = new Date(year, month + 1, 0);
 
+    // Mostra: pendentes vencendo no mês selecionado + qualquer pendente de meses anteriores que ainda não foi paga
     const filtradas = financeData.saidas.filter(s => {
         if (s.status === 'pago') return false;
         const d = new Date(s.vencimento + 'T00:00:00');
-        return d.getFullYear() === year && d.getMonth() === month && (currentCategoryFilter === 'TODAS' || s.categoria === currentCategoryFilter);
+        return d <= fimMesAtual && (currentCategoryFilter === 'TODAS' || s.categoria === currentCategoryFilter);
     });
 
     if (filtradas.length === 0) {
@@ -716,7 +740,7 @@ function renderPagas() {
 
     const pagas = financeData.saidas.filter(s => {
         if (s.status !== 'pago') return false;
-        const d = new Date(s.vencimento + 'T00:00:00');
+        const d = new Date((s.data_pagamento || s.vencimento) + 'T00:00:00');
         return d.getFullYear() === year && d.getMonth() === month;
     });
 
