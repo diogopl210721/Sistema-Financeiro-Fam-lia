@@ -432,6 +432,24 @@
         </div>
     </div>
 
+    <!-- MODAL DE CONFIRMAR RETORNO (DÍZIMO / PRIMÍCIAS) -->
+    <div id="modal-confirmar-retorno" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-confirmar-retorno">&times;</span>
+            <h2 id="titulo-confirmar-retorno">✏️ Confirmar Devolução</h2>
+            <input type="hidden" id="confirmar-retorno-id">
+            <input type="hidden" id="confirmar-retorno-tipo">
+            <div class="form-group margin-top">
+                <label>Data da Devolução</label>
+                <input type="date" id="confirmar-retorno-data" required>
+                <p class="card-subtext">Pode alterar depois em Arquivo de Pagas, se precisar.</p>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-salvar-confirmar-retorno" class="btn-success">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL DE EDITAR INVESTIMENTO -->
     <div id="modal-editar-investimento" class="modal">
         <div class="modal-content">
@@ -451,6 +469,30 @@
                     <option value="Forex/Cripto">Forex / Cripto</option>
                     <option value="Outros">Outros</option>
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Moeda</label>
+                <select id="edit-inv-moeda" required>
+                    <option value="BRL">Real (R$)</option>
+                    <option value="USD">Dólar (US$)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Total Investido em R$ (caixa que saiu do bolso)</label>
+                <input type="number" step="0.01" id="edit-inv-aporte" required>
+            </div>
+            <div class="form-group">
+                <label>Total Investido na moeda do ativo</label>
+                <input type="number" step="0.01" id="edit-inv-aporte-ref" required>
+                <p class="card-subtext">Usado pra calcular o lucro/prejuízo na moeda original do ativo.</p>
+            </div>
+            <div class="form-group">
+                <label>Valor Atual na moeda do ativo</label>
+                <input type="number" step="0.01" id="edit-inv-valor-atual" required>
+            </div>
+            <div class="form-group" id="edit-inv-cotacao-group">
+                <label>Cotação Atual (US$ → R$)</label>
+                <input type="number" step="0.0001" id="edit-inv-cotacao">
             </div>
             <div class="modal-actions">
                 <button id="btn-salvar-edicao-investimento" class="btn-success">Salvar Alterações</button>

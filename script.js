@@ -498,6 +498,8 @@ function setupEvents() {
     document.getElementById('close-modal-editar-saida').onclick = () => document.getElementById('modal-editar-saida').style.display = 'none';
     document.getElementById('close-modal-editar-entrada').onclick = () => document.getElementById('modal-editar-entrada').style.display = 'none';
     document.getElementById('close-modal-editar-investimento').onclick = () => document.getElementById('modal-editar-investimento').style.display = 'none';
+    document.getElementById('close-modal-confirmar-retorno').onclick = () => document.getElementById('modal-confirmar-retorno').style.display = 'none';
+    document.getElementById('btn-salvar-confirmar-retorno').onclick = salvarConfirmarRetorno;
 
     document.getElementById('btn-salvar-edicao-saida').onclick = async () => {
         const id = document.getElementById('edit-saida-id').value;
@@ -533,14 +535,27 @@ function setupEvents() {
 
     document.getElementById('btn-salvar-edicao-investimento').onclick = async () => {
         const id = document.getElementById('edit-inv-id').value;
-        const { error } = await supabaseClient.from('investimentos').update({
+        const moeda = document.getElementById('edit-inv-moeda').value;
+        const payload = {
             nome: document.getElementById('edit-inv-nome').value,
-            tipo: document.getElementById('edit-inv-tipo').value
-        }).eq('id', id);
+            tipo: document.getElementById('edit-inv-tipo').value,
+            moeda: moeda,
+            aporte: parseFloat(document.getElementById('edit-inv-aporte').value),
+            aporte_referencia: parseFloat(document.getElementById('edit-inv-aporte-ref').value),
+            valor_atual: parseFloat(document.getElementById('edit-inv-valor-atual').value)
+        };
+        if (moeda === 'USD') {
+            payload.cotacao_atual = parseFloat(document.getElementById('edit-inv-cotacao').value) || 1;
+        }
+        const { error } = await supabaseClient.from('investimentos').update(payload).eq('id', id);
         if (error) { alert('Erro ao salvar: ' + error.message); return; }
         await loadAllData(); renderAll();
         document.getElementById('modal-editar-investimento').style.display = 'none';
     };
+
+    document.getElementById('edit-inv-moeda').addEventListener('change', (e) => {
+        document.getElementById('edit-inv-cotacao-group').style.display = e.target.value === 'USD' ? 'block' : 'none';
+    });
 }
 
 // ===== ABRIR MODAIS DE EDIÇÃO =====
@@ -573,6 +588,12 @@ function abrirEdicaoInvestimento(id) {
     document.getElementById('edit-inv-id').value = inv.id;
     document.getElementById('edit-inv-nome').value = inv.nome;
     document.getElementById('edit-inv-tipo').value = inv.tipo;
+    document.getElementById('edit-inv-moeda').value = inv.moeda;
+    document.getElementById('edit-inv-aporte').value = inv.aporte;
+    document.getElementById('edit-inv-aporte-ref').value = inv.aporte_referencia;
+    document.getElementById('edit-inv-valor-atual').value = inv.valor_atual;
+    document.getElementById('edit-inv-cotacao').value = inv.cotacao_atual || '';
+    document.getElementById('edit-inv-cotacao-group').style.display = inv.moeda === 'USD' ? 'block' : 'none';
     document.getElementById('modal-editar-investimento').style.display = 'flex';
 }
 
@@ -721,9 +742,9 @@ function renderEntradas() {
             <td><strong>${e.descricao}</strong></td>
             <td class="val-green">${formatR$(e.valor)}</td>
             <td>${formatR$(e.dizimo_valor)}</td>
-            <td>${e.dizimo_status === 'devolvido' ? '<span class="badge-status badge-devolvido">✓ Devolvido</span>' : `<button class="btn-secondary" onclick="confirmarDizimo('${e.id}')">[ ] Confirmar Dízimo</button>`}</td>
+            <td>${e.dizimo_status === 'devolvido' ? `<span class="badge-status badge-devolvido">✓ Devolvido${e.dizimo_data_pagamento ? ' em ' + formatData(e.dizimo_data_pagamento) : ''}</span>` : `<button class="btn-secondary" onclick="abrirConfirmarRetorno('${e.id}','dizimo')">[ ] Confirmar Dízimo</button>`}</td>
             <td>${formatR$(e.primicias_valor)}</td>
-            <td>${e.primicias_status === 'devolvido' ? '<span class="badge-status badge-devolvido">✓ Devolvido</span>' : `<button class="btn-secondary" onclick="confirmarPrimicias('${e.id}')">[ ] Confirmar Primícias</button>`}</td>
+            <td>${e.primicias_status === 'devolvido' ? `<span class="badge-status badge-devolvido">✓ Devolvido${e.primicias_data_pagamento ? ' em ' + formatData(e.primicias_data_pagamento) : ''}</span>` : `<button class="btn-secondary" onclick="abrirConfirmarRetorno('${e.id}','primicias')">[ ] Confirmar Primícias</button>`}</td>
             <td>
                 <button class="btn-secondary" onclick="abrirEdicaoEntrada('${e.id}')">✏️</button>
                 <button class="btn-delete" onclick="deletarEntrada('${e.id}')">🗑️</button>
@@ -902,29 +923,41 @@ async function deletarEntrada(id) {
     await loadAllData(); renderAll();
 }
 
-async function confirmarDizimo(id) {
-    const e = financeData.entradas.find(x => x.id === id);
-    if (!e) return;
-    await supabaseClient.from('entradas').update({ dizimo_status: 'devolvido' }).eq('id', id);
-    await supabaseClient.from('saidas').insert({
-        family_id: currentProfile.family_id, created_by: currentProfile.id,
-        descricao: `Dízimo (${e.descricao})`, categoria: 'Dízimos/Ofertas',
-        valor: e.dizimo_valor, parcela_atual: 1, parcelas_total: 1,
-        vencimento: e.data, status: 'pago', data_pagamento: new Date().toISOString().split('T')[0]
-    });
-    await loadAllData(); renderAll();
+function abrirConfirmarRetorno(id, tipo) {
+    document.getElementById('confirmar-retorno-id').value = id;
+    document.getElementById('confirmar-retorno-tipo').value = tipo;
+    document.getElementById('titulo-confirmar-retorno').innerText = tipo === 'dizimo' ? '✏️ Confirmar Devolução do Dízimo' : '✏️ Confirmar Devolução das Primícias';
+    document.getElementById('confirmar-retorno-data').value = new Date().toISOString().split('T')[0];
+    document.getElementById('modal-confirmar-retorno').style.display = 'flex';
 }
 
-async function confirmarPrimicias(id) {
+async function salvarConfirmarRetorno() {
+    const id = document.getElementById('confirmar-retorno-id').value;
+    const tipo = document.getElementById('confirmar-retorno-tipo').value;
+    const dataEscolhida = document.getElementById('confirmar-retorno-data').value;
+    if (!dataEscolhida) { alert('Escolha uma data.'); return; }
+
     const e = financeData.entradas.find(x => x.id === id);
     if (!e) return;
-    await supabaseClient.from('entradas').update({ primicias_status: 'devolvido' }).eq('id', id);
-    await supabaseClient.from('saidas').insert({
-        family_id: currentProfile.family_id, created_by: currentProfile.id,
-        descricao: `Primícias (${e.descricao})`, categoria: 'Dízimos/Ofertas',
-        valor: e.primicias_valor, parcela_atual: 1, parcelas_total: 1,
-        vencimento: e.data, status: 'pago', data_pagamento: new Date().toISOString().split('T')[0]
-    });
+
+    if (tipo === 'dizimo') {
+        await supabaseClient.from('entradas').update({ dizimo_status: 'devolvido', dizimo_data_pagamento: dataEscolhida }).eq('id', id);
+        await supabaseClient.from('saidas').insert({
+            family_id: currentProfile.family_id, created_by: currentProfile.id,
+            descricao: `Dízimo (${e.descricao})`, categoria: 'Dízimos/Ofertas',
+            valor: e.dizimo_valor, parcela_atual: 1, parcelas_total: 1,
+            data_compra: dataEscolhida, vencimento: dataEscolhida, status: 'pago', data_pagamento: dataEscolhida
+        });
+    } else {
+        await supabaseClient.from('entradas').update({ primicias_status: 'devolvido', primicias_data_pagamento: dataEscolhida }).eq('id', id);
+        await supabaseClient.from('saidas').insert({
+            family_id: currentProfile.family_id, created_by: currentProfile.id,
+            descricao: `Primícias (${e.descricao})`, categoria: 'Dízimos/Ofertas',
+            valor: e.primicias_valor, parcela_atual: 1, parcelas_total: 1,
+            data_compra: dataEscolhida, vencimento: dataEscolhida, status: 'pago', data_pagamento: dataEscolhida
+        });
+    }
+    document.getElementById('modal-confirmar-retorno').style.display = 'none';
     await loadAllData(); renderAll();
 }
 
