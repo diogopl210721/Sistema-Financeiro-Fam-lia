@@ -421,21 +421,16 @@ function setupEvents() {
 
     document.getElementById('btn-salvar-att-inv').onclick = async () => {
         const id = document.getElementById('att-inv-id').value;
-        const novoValor = parseFloat(document.getElementById('att-inv-valor').value);
+        const lucroDia = parseFloat(document.getElementById('att-inv-valor').value);
         const inv = financeData.investimentos.find(i => i.id === id);
         if (!inv) return;
+        if (isNaN(lucroDia)) { alert('Informe o lucro ou prejuízo de hoje (pode ser negativo).'); return; }
 
-        let cotacao = 1;
-        const updatePayload = { valor_atual: novoValor };
-        if (inv.moeda === 'USD') {
-            cotacao = parseFloat(document.getElementById('att-inv-cotacao').value);
-            if (!cotacao || cotacao <= 0) { alert('Informe a cotação do dólar hoje.'); return; }
-            updatePayload.cotacao_atual = cotacao;
-        }
+        const novoValor = Number(inv.valor_atual) + lucroDia;
 
-        await supabaseClient.from('investimentos').update(updatePayload).eq('id', id);
+        await supabaseClient.from('investimentos').update({ valor_atual: novoValor }).eq('id', id);
         await supabaseClient.from('investimentos_historico').insert({
-            investimento_id: id, family_id: currentProfile.family_id, valor: novoValor, cotacao
+            investimento_id: id, family_id: currentProfile.family_id, valor: novoValor, cotacao: inv.cotacao_atual || 1
         });
 
         await loadAllData(); renderAll();
@@ -450,12 +445,10 @@ function setupEvents() {
 
         const valorAtualAntes = parseFloat(inv.valor_atual);
         let valorEmReais = valorSacar; // valor que efetivamente entra na aba Entradas (sempre em R$)
-        let cotacao = 1;
 
         if (inv.moeda === 'USD') {
-            cotacao = parseFloat(document.getElementById('sacar-inv-cotacao').value);
-            if (!cotacao || cotacao <= 0) { alert('Informe a cotação do dólar hoje pra converter o resgate pra Real.'); return; }
-            valorEmReais = +(valorSacar * cotacao).toFixed(2);
+            valorEmReais = parseFloat(document.getElementById('sacar-inv-valor-reais').value);
+            if (!valorEmReais || valorEmReais <= 0) { alert('Informe quanto você recebeu em R$ depois de converter.'); return; }
         }
 
         const proporcao = valorAtualAntes > 0 ? Math.min(1, valorSacar / valorAtualAntes) : 1;
@@ -464,12 +457,11 @@ function setupEvents() {
         const novoAporteReferencia = Math.max(0, parseFloat(inv.aporte_referencia) * (1 - proporcao));
 
         await supabaseClient.from('investimentos').update({
-            valor_atual: novoAtual, aporte: novoAporte, aporte_referencia: novoAporteReferencia,
-            ...(inv.moeda === 'USD' ? { cotacao_atual: cotacao } : {})
+            valor_atual: novoAtual, aporte: novoAporte, aporte_referencia: novoAporteReferencia
         }).eq('id', id);
 
         await supabaseClient.from('investimentos_historico').insert({
-            investimento_id: id, family_id: currentProfile.family_id, valor: novoAtual, cotacao
+            investimento_id: id, family_id: currentProfile.family_id, valor: novoAtual, cotacao: inv.cotacao_atual || 1
         });
         await supabaseClient.from('entradas').insert({
             family_id: currentProfile.family_id,
@@ -940,11 +932,9 @@ function abrirModalAtt(id) {
     if (inv) {
         const isUSD = inv.moeda === 'USD';
         document.getElementById('att-inv-id').value = id;
-        document.getElementById('att-inv-label').innerText = `Novo Valor Atual das 19h para: ${inv.nome} (${isUSD ? 'em US$' : 'em R$'})`;
-        document.getElementById('att-inv-valor').value = inv.valor_atual;
-        document.getElementById('grupo-att-inv-cotacao').classList.toggle('hidden', !isUSD);
-        document.getElementById('att-inv-cotacao').value = isUSD ? inv.cotacao_atual : '';
-        document.getElementById('att-inv-cotacao').required = isUSD;
+        document.getElementById('att-inv-label').innerText = `Lucro/Prejuízo de Hoje: ${inv.nome} (${isUSD ? 'em US$' : 'em R$'})`;
+        document.getElementById('att-inv-valor').value = '';
+        document.getElementById('att-inv-valor-atual-texto').innerText = `Valor atual: ${formatMoeda(inv.valor_atual, inv.moeda)}`;
         document.getElementById('modal-att-inv').style.display = 'flex';
     }
 }
@@ -955,9 +945,8 @@ function abrirModalSacar(id) {
         document.getElementById('sacar-inv-id').value = id;
         document.getElementById('sacar-inv-label').innerText = isUSD ? 'Valor do Resgate (em US$)' : 'Valor do Resgate Total ou Parcial (R$)';
         document.getElementById('sacar-inv-valor').value = inv.valor_atual;
-        document.getElementById('grupo-sacar-inv-cotacao').classList.toggle('hidden', !isUSD);
-        document.getElementById('sacar-inv-cotacao').value = isUSD ? inv.cotacao_atual : '';
-        document.getElementById('sacar-inv-cotacao').required = isUSD;
+        document.getElementById('grupo-sacar-inv-reais').classList.toggle('hidden', !isUSD);
+        document.getElementById('sacar-inv-valor-reais').required = isUSD;
         document.getElementById('modal-sacar-inv').style.display = 'flex';
     }
 }
