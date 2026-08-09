@@ -814,58 +814,75 @@ function renderInvestimentos() {
     renderChartInvestimentos();
 }
 
-let chartForexInstance = null;
-let chartOutrosInstance = null;
+let chartInvSelecionadoInstance = null;
+let investimentoSelecionadoId = null;
 
 function renderChartInvestimentos() {
-    renderChartPorMoeda('USD', 'chart-investimentos-forex', 'Evolução % Forex (US$)', '#8b5cf6');
-    renderChartPorMoeda('BRL', 'chart-investimentos-outros', 'Evolução % Outros Investimentos (R$)', '#3b82f6');
-}
+    const select = document.getElementById('select-investimento-grafico');
+    if (!select) return;
 
-function renderChartPorMoeda(moeda, canvasId, label, cor) {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-
-    const instanceRef = moeda === 'USD' ? 'chartForexInstance' : 'chartOutrosInstance';
-    if (moeda === 'USD' && chartForexInstance) chartForexInstance.destroy();
-    if (moeda === 'BRL' && chartOutrosInstance) chartOutrosInstance.destroy();
-
-    // Trabalha só na moeda nativa do grupo — sem nenhuma conversão
-    const invsDoGrupo = financeData.investimentos.filter(i => i.moeda === moeda);
-    const idsDoGrupo = new Set(invsDoGrupo.map(i => i.id));
-    const totalAporteRef = invsDoGrupo.reduce((a, b) => a + Number(b.aporte_referencia), 0);
-
-    const historicoOrdenado = [...financeData.historico]
-        .filter(h => idsDoGrupo.has(h.investimento_id))
-        .sort((a, b) => new Date(a.registrado_em) - new Date(b.registrado_em));
-
-    const valorAtualPorInv = {};
-    const pontosPorDia = {};
-    historicoOrdenado.forEach(h => {
-        valorAtualPorInv[h.investimento_id] = Number(h.valor);
-        const diaKey = h.registrado_em.split('T')[0];
-        const totalAtual = Object.values(valorAtualPorInv).reduce((a, b) => a + b, 0);
-        pontosPorDia[diaKey] = totalAporteRef > 0 ? ((totalAtual - totalAporteRef) / totalAporteRef) * 100 : 0;
+    const opcaoAnterior = investimentoSelecionadoId;
+    select.innerHTML = '';
+    financeData.investimentos.forEach(inv => {
+        const opt = document.createElement('option');
+        opt.value = inv.id;
+        opt.innerText = `${inv.nome} (${inv.moeda === 'USD' ? 'US$' : 'R$'})`;
+        select.appendChild(opt);
     });
 
-    let labels = Object.keys(pontosPorDia);
-    let valores = Object.values(pontosPorDia);
+    if (financeData.investimentos.length === 0) {
+        investimentoSelecionadoId = null;
+        if (chartInvSelecionadoInstance) { chartInvSelecionadoInstance.destroy(); chartInvSelecionadoInstance = null; }
+        return;
+    }
 
-    if (labels.length === 0 && invsDoGrupo.length > 0) {
-        const totalAtual = invsDoGrupo.reduce((a, b) => a + Number(b.valor_atual), 0);
-        const pct = totalAporteRef > 0 ? ((totalAtual - totalAporteRef) / totalAporteRef) * 100 : 0;
+    // Mantém a seleção anterior se ainda existir, senão pega o primeiro
+    const aindaExiste = financeData.investimentos.some(i => i.id === opcaoAnterior);
+    investimentoSelecionadoId = aindaExiste ? opcaoAnterior : financeData.investimentos[0].id;
+    select.value = investimentoSelecionadoId;
+
+    select.onchange = () => {
+        investimentoSelecionadoId = select.value;
+        renderChartDoInvestimentoSelecionado();
+    };
+
+    renderChartDoInvestimentoSelecionado();
+}
+
+function renderChartDoInvestimentoSelecionado() {
+    const ctx = document.getElementById('chart-investimento-evolucao');
+    if (!ctx || !investimentoSelecionadoId) return;
+    if (chartInvSelecionadoInstance) chartInvSelecionadoInstance.destroy();
+
+    const inv = financeData.investimentos.find(i => i.id === investimentoSelecionadoId);
+    if (!inv) return;
+
+    const aporteRef = Number(inv.aporte_referencia);
+    const cor = inv.moeda === 'USD' ? '#8b5cf6' : '#3b82f6';
+    const simbolo = inv.moeda === 'USD' ? 'US$' : 'R$';
+
+    const historicoOrdenado = [...financeData.historico]
+        .filter(h => h.investimento_id === investimentoSelecionadoId)
+        .sort((a, b) => new Date(a.registrado_em) - new Date(b.registrado_em));
+
+    let labels = historicoOrdenado.map(h => h.registrado_em.split('T')[0]);
+    let valores = historicoOrdenado.map(h => aporteRef > 0 ? ((Number(h.valor) - aporteRef) / aporteRef) * 100 : 0);
+
+    if (labels.length === 0) {
+        const pct = aporteRef > 0 ? ((Number(inv.valor_atual) - aporteRef) / aporteRef) * 100 : 0;
         labels = ['Hoje']; valores = [pct];
     }
 
-    labels = labels.slice(-12).map(d => { const [y, m, dd] = d.split('-'); return `${dd}/${m}`; });
-    valores = valores.slice(-12);
+    labels = labels.slice(-30).map(d => { const parts = d.split('-'); return parts.length === 3 ? `${parts[2]}/${parts[1]}` : d; });
+    valores = valores.slice(-30);
 
-    const chart = new Chart(ctx, {
+    chartInvSelecionadoInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels,
             datasets: [{
-                label, data: valores,
+                label: `${inv.nome} — Evolução % (aporte: ${simbolo} ${aporteRef.toFixed(2)})`,
+                data: valores,
                 borderColor: cor, backgroundColor: cor + '1A',
                 borderWidth: 3, fill: true, tension: 0.3
             }]
@@ -876,8 +893,6 @@ function renderChartPorMoeda(moeda, canvasId, label, cor) {
             scales: { y: { ticks: { callback: (val) => val + '%' } } }
         }
     });
-
-    if (moeda === 'USD') chartForexInstance = chart; else chartOutrosInstance = chart;
 }
 
 // ================== AÇÕES ==================

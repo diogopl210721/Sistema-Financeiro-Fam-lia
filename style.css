@@ -107,6 +107,9 @@ button { cursor: pointer; border-radius: 6px; font-weight: 600; border: none; tr
     border: 1px solid var(--border-color); box-shadow: var(--shadow); margin-bottom: 24px;
 }
 .chart-wrapper { height: 260px; width: 100%; }
+.chart-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.chart-header-flex h3 { margin: 0; }
+.chart-header-flex select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--card-bg); font-size: 0.9rem; }
 
 .table-card { background: var(--card-bg); padding: 20px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: var(--shadow); }
 .responsive-table { overflow-x: auto; }
