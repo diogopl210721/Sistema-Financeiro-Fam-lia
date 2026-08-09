@@ -304,19 +304,19 @@
                 <p class="card-subtext" style="margin-top:8px;">💡 A saída em R$ é sempre o dinheiro real gasto. Se o ativo for em dólar, a evolução (lucro %) é calculada em dólar — a variação do câmbio não interfere na rentabilidade do ativo em si.</p>
             </div>
 
-            <!-- GRÁFICO DE EVOLUÇÃO EM PORCENTAGEM DE LUCRO -->
+            <!-- GRÁFICO DE EVOLUÇÃO: FOREX (US$) -->
             <div class="chart-card">
-                <h3>📈 Evolução Mensal do Lucro da Carteira (%)</h3>
+                <h3>📈 Evolução do Forex (%, em US$)</h3>
                 <div class="chart-wrapper">
-                    <canvas id="chart-investimentos"></canvas>
+                    <canvas id="chart-investimentos-forex"></canvas>
                 </div>
             </div>
 
-            <!-- GRÁFICO DE PIZZA: DISTRIBUIÇÃO DOS INVESTIMENTOS -->
+            <!-- GRÁFICO DE EVOLUÇÃO: OUTROS INVESTIMENTOS (R$) -->
             <div class="chart-card">
-                <h3>🥧 Distribuição da Carteira (Capital Investido)</h3>
+                <h3>📈 Evolução dos Outros Investimentos (%, em R$)</h3>
                 <div class="chart-wrapper">
-                    <canvas id="chart-pizza-investimentos"></canvas>
+                    <canvas id="chart-investimentos-outros"></canvas>
                 </div>
             </div>
 
@@ -538,9 +538,9 @@
                 <input type="number" step="0.01" id="sacar-inv-valor" placeholder="0,00" required>
             </div>
             <div class="form-group hidden" id="grupo-sacar-inv-reais">
-                <label>Valor Recebido em R$ (você já converteu)</label>
-                <input type="number" step="0.01" id="sacar-inv-valor-reais" placeholder="0,00">
-                <p class="card-subtext">Esse é o valor que vai entrar na aba Entradas.</p>
+                <label>Cotação do Dólar Hoje (R$)</label>
+                <input type="number" step="0.0001" id="sacar-inv-valor-reais" placeholder="Ex: 5,40">
+                <p class="card-subtext">O sistema converte automaticamente pra R$ e lança em Entradas.</p>
             </div>
             <div class="modal-actions">
                 <button id="btn-confirmar-sacar" class="btn-success">Confirmar Resgate & Enviar para Entradas</button>

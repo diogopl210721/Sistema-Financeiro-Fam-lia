@@ -15,8 +15,6 @@ let financeData = {
 };
 
 let currentCategoryFilter = 'TODAS';
-let chartInstance = null;
-let chartPizzaInstance = null;
 let realtimeChannel = null;
 
 // ================== BOOT ==================
@@ -447,8 +445,9 @@ function setupEvents() {
         let valorEmReais = valorSacar; // valor que efetivamente entra na aba Entradas (sempre em R$)
 
         if (inv.moeda === 'USD') {
-            valorEmReais = parseFloat(document.getElementById('sacar-inv-valor-reais').value);
-            if (!valorEmReais || valorEmReais <= 0) { alert('Informe quanto você recebeu em R$ depois de converter.'); return; }
+            const cotacaoHoje = parseFloat(document.getElementById('sacar-inv-valor-reais').value);
+            if (!cotacaoHoje || cotacaoHoje <= 0) { alert('Informe a cotação do dólar hoje.'); return; }
+            valorEmReais = +(valorSacar * cotacaoHoje).toFixed(2);
         }
 
         const proporcao = valorAtualAntes > 0 ? Math.min(1, valorSacar / valorAtualAntes) : 1;
@@ -813,108 +812,61 @@ function renderInvestimentos() {
     });
 
     renderChartInvestimentos();
-    renderChartPizzaInvestimentos();
 }
 
-function renderChartPizzaInvestimentos() {
-    const ctx = document.getElementById('chart-pizza-investimentos');
-    if (!ctx) return;
-    if (chartPizzaInstance) chartPizzaInstance.destroy();
-
-    const invs = financeData.investimentos.filter(i => Number(i.aporte) > 0);
-
-    if (invs.length === 0) {
-        return;
-    }
-
-    const cores = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#6366f1'];
-
-    const labels = invs.map(inv => {
-        const aporteRef = Number(inv.aporte_referencia);
-        const atual = Number(inv.valor_atual);
-        const lucroPct = aporteRef > 0 ? ((atual - aporteRef) / aporteRef) * 100 : 0;
-        return `${inv.nome} (${lucroPct >= 0 ? '+' : ''}${lucroPct.toFixed(1)}%)`;
-    });
-    // Fatia proporcional ao capital investido em R$ (dinheiro real que saiu do bolso)
-    const valores = invs.map(inv => Number(inv.aporte));
-    const totalAporte = valores.reduce((a, b) => a + b, 0);
-
-    chartPizzaInstance = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels,
-            datasets: [{
-                data: valores,
-                backgroundColor: invs.map((_, i) => cores[i % cores.length]),
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom' },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => {
-                            const pctCarteira = totalAporte > 0 ? (ctx.raw / totalAporte) * 100 : 0;
-                            return `${formatR$(ctx.raw)} investidos (${pctCarteira.toFixed(1)}% da carteira)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
+let chartForexInstance = null;
+let chartOutrosInstance = null;
 
 function renderChartInvestimentos() {
-    const ctx = document.getElementById('chart-investimentos');
+    renderChartPorMoeda('USD', 'chart-investimentos-forex', 'Evolução % Forex (US$)', '#8b5cf6');
+    renderChartPorMoeda('BRL', 'chart-investimentos-outros', 'Evolução % Outros Investimentos (R$)', '#3b82f6');
+}
+
+function renderChartPorMoeda(moeda, canvasId, label, cor) {
+    const ctx = document.getElementById(canvasId);
     if (!ctx) return;
-    if (chartInstance) chartInstance.destroy();
 
-    // Monta a evolução real com base no histórico salvo no Supabase (tudo convertido pra R$)
-    const moedaPorInv = {};
-    financeData.investimentos.forEach(inv => { moedaPorInv[inv.id] = inv.moeda; });
+    const instanceRef = moeda === 'USD' ? 'chartForexInstance' : 'chartOutrosInstance';
+    if (moeda === 'USD' && chartForexInstance) chartForexInstance.destroy();
+    if (moeda === 'BRL' && chartOutrosInstance) chartOutrosInstance.destroy();
 
-    const valorAtualBRL = {}; // último valor conhecido de cada ativo, já em R$
-    const totalAporte = financeData.investimentos.reduce((a, b) => a + Number(b.aporte), 0);
+    // Trabalha só na moeda nativa do grupo — sem nenhuma conversão
+    const invsDoGrupo = financeData.investimentos.filter(i => i.moeda === moeda);
+    const idsDoGrupo = new Set(invsDoGrupo.map(i => i.id));
+    const totalAporteRef = invsDoGrupo.reduce((a, b) => a + Number(b.aporte_referencia), 0);
 
-    const historicoOrdenado = [...financeData.historico].sort((a, b) => new Date(a.registrado_em) - new Date(b.registrado_em));
+    const historicoOrdenado = [...financeData.historico]
+        .filter(h => idsDoGrupo.has(h.investimento_id))
+        .sort((a, b) => new Date(a.registrado_em) - new Date(b.registrado_em));
 
+    const valorAtualPorInv = {};
     const pontosPorDia = {};
     historicoOrdenado.forEach(h => {
-        const moeda = moedaPorInv[h.investimento_id] || 'BRL';
-        valorAtualBRL[h.investimento_id] = moeda === 'USD' ? Number(h.valor) * Number(h.cotacao || 1) : Number(h.valor);
+        valorAtualPorInv[h.investimento_id] = Number(h.valor);
         const diaKey = h.registrado_em.split('T')[0];
-        const totalAtual = Object.values(valorAtualBRL).reduce((a, b) => a + b, 0);
-        pontosPorDia[diaKey] = totalAporte > 0 ? ((totalAtual - totalAporte) / totalAporte) * 100 : 0;
+        const totalAtual = Object.values(valorAtualPorInv).reduce((a, b) => a + b, 0);
+        pontosPorDia[diaKey] = totalAporteRef > 0 ? ((totalAtual - totalAporteRef) / totalAporteRef) * 100 : 0;
     });
 
     let labels = Object.keys(pontosPorDia);
     let valores = Object.values(pontosPorDia);
 
-    if (labels.length === 0 && financeData.investimentos.length > 0) {
-        const totalAtualBRL = financeData.investimentos.reduce((a, b) => {
-            const v = Number(b.valor_atual);
-            return a + (b.moeda === 'USD' ? v * Number(b.cotacao_atual || 1) : v);
-        }, 0);
-        const pct = totalAporte > 0 ? ((totalAtualBRL - totalAporte) / totalAporte) * 100 : 0;
+    if (labels.length === 0 && invsDoGrupo.length > 0) {
+        const totalAtual = invsDoGrupo.reduce((a, b) => a + Number(b.valor_atual), 0);
+        const pct = totalAporteRef > 0 ? ((totalAtual - totalAporteRef) / totalAporteRef) * 100 : 0;
         labels = ['Hoje']; valores = [pct];
     }
 
-    // Limita aos últimos 12 pontos para não poluir o gráfico
     labels = labels.slice(-12).map(d => { const [y, m, dd] = d.split('-'); return `${dd}/${m}`; });
     valores = valores.slice(-12);
 
-    chartInstance = new Chart(ctx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels,
             datasets: [{
-                label: 'Evolução % de Lucro da Carteira',
-                data: valores,
-                borderColor: '#8b5cf6',
-                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                label, data: valores,
+                borderColor: cor, backgroundColor: cor + '1A',
                 borderWidth: 3, fill: true, tension: 0.3
             }]
         },
@@ -924,6 +876,8 @@ function renderChartInvestimentos() {
             scales: { y: { ticks: { callback: (val) => val + '%' } } }
         }
     });
+
+    if (moeda === 'USD') chartForexInstance = chart; else chartOutrosInstance = chart;
 }
 
 // ================== AÇÕES ==================
