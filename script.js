@@ -16,6 +16,7 @@ let financeData = {
 
 let currentCategoryFilter = 'TODAS';
 let chartInstance = null;
+let chartPizzaInstance = null;
 let realtimeChannel = null;
 
 // ================== BOOT ==================
@@ -820,6 +821,58 @@ function renderInvestimentos() {
     });
 
     renderChartInvestimentos();
+    renderChartPizzaInvestimentos();
+}
+
+function renderChartPizzaInvestimentos() {
+    const ctx = document.getElementById('chart-pizza-investimentos');
+    if (!ctx) return;
+    if (chartPizzaInstance) chartPizzaInstance.destroy();
+
+    const invs = financeData.investimentos.filter(i => Number(i.aporte) > 0);
+
+    if (invs.length === 0) {
+        return;
+    }
+
+    const cores = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#6366f1'];
+
+    const labels = invs.map(inv => {
+        const aporteRef = Number(inv.aporte_referencia);
+        const atual = Number(inv.valor_atual);
+        const lucroPct = aporteRef > 0 ? ((atual - aporteRef) / aporteRef) * 100 : 0;
+        return `${inv.nome} (${lucroPct >= 0 ? '+' : ''}${lucroPct.toFixed(1)}%)`;
+    });
+    // Fatia proporcional ao capital investido em R$ (dinheiro real que saiu do bolso)
+    const valores = invs.map(inv => Number(inv.aporte));
+    const totalAporte = valores.reduce((a, b) => a + b, 0);
+
+    chartPizzaInstance = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels,
+            datasets: [{
+                data: valores,
+                backgroundColor: invs.map((_, i) => cores[i % cores.length]),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const pctCarteira = totalAporte > 0 ? (ctx.raw / totalAporte) * 100 : 0;
+                            return `${formatR$(ctx.raw)} investidos (${pctCarteira.toFixed(1)}% da carteira)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 function renderChartInvestimentos() {
