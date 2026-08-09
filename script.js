@@ -655,20 +655,26 @@ function renderDashboard() {
     });
     const totalVencer = pendentesMes.reduce((acc, cur) => acc + Number(cur.valor), 0);
 
-    // Aporte é sempre em R$; valor atual é convertido pra R$ usando a última cotação informada (ativos em US$)
-    const totalAporte = financeData.investimentos.reduce((a, b) => a + Number(b.aporte), 0);
-    const totalAtualBRL = financeData.investimentos.reduce((a, b) => {
-        const valor = Number(b.valor_atual);
-        return a + (b.moeda === 'USD' ? valor * Number(b.cotacao_atual || 1) : valor);
-    }, 0);
-    const lucroGeralPct = totalAporte > 0 ? (((totalAtualBRL - totalAporte) / totalAporte) * 100) : 0;
+    // Forex e Outros ficam cada um na sua própria moeda, sem conversão
+    const investForex = financeData.investimentos.filter(i => i.moeda === 'USD');
+    const investOutros = financeData.investimentos.filter(i => i.moeda !== 'USD');
+
+    const aporteRefForex = investForex.reduce((a, b) => a + Number(b.aporte_referencia), 0);
+    const atualForex = investForex.reduce((a, b) => a + Number(b.valor_atual), 0);
+    const lucroForexPct = aporteRefForex > 0 ? (((atualForex - aporteRefForex) / aporteRefForex) * 100) : 0;
+
+    const aporteRefOutros = investOutros.reduce((a, b) => a + Number(b.aporte_referencia), 0);
+    const atualOutros = investOutros.reduce((a, b) => a + Number(b.valor_atual), 0);
+    const lucroOutrosPct = aporteRefOutros > 0 ? (((atualOutros - aporteRefOutros) / aporteRefOutros) * 100) : 0;
 
     document.getElementById('dash-saldo-anterior').innerText = formatR$(saldoAnterior);
     document.getElementById('dash-saldo').innerText = formatR$(saldoAnterior + totalEntradas - totalPagas);
     document.getElementById('dash-pago').innerText = formatR$(totalPagas);
     document.getElementById('dash-vencer').innerText = formatR$(totalVencer);
-    document.getElementById('dash-investido').innerText = formatR$(totalAtualBRL);
-    document.getElementById('dash-lucro-total').innerText = `${lucroGeralPct >= 0 ? '+' : ''}${lucroGeralPct.toFixed(2)}% de Lucro Acumulado (em R$)`;
+    document.getElementById('dash-investido-forex').innerText = formatMoeda(atualForex, 'USD');
+    document.getElementById('dash-lucro-forex').innerText = `${lucroForexPct >= 0 ? '+' : ''}${lucroForexPct.toFixed(2)}% de Lucro Acumulado`;
+    document.getElementById('dash-investido-outros').innerText = formatR$(atualOutros);
+    document.getElementById('dash-lucro-outros').innerText = `${lucroOutrosPct >= 0 ? '+' : ''}${lucroOutrosPct.toFixed(2)}% de Lucro Acumulado`;
 }
 
 function renderSaidas() {
